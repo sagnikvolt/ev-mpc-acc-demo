@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Battery-aware MPC-ACC demo</title>
+<style>
+:root{--bg:#fff;--fg:#1a1a1a;--mut:#666;--line:#ddd;--acc:#c2410c;--mpc:#0f766e;--lead:#888}
+@media(prefers-color-scheme:dark){:root{--bg:#161616;--fg:#eee;--mut:#aaa;--line:#333;--acc:#fb923c;--mpc:#2dd4bf;--lead:#999}}
+body{font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--fg);max-width:900px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:20px 0 8px}.mut{color:var(--mut)}
+.box{border:1px solid var(--line);border-radius:8px;padding:12px;margin:10px 0}
+textarea{width:100%;height:90px;font:12px monospace;background:transparent;color:var(--fg);border:1px solid var(--line);border-radius:6px;box-sizing:border-box}
+label{display:inline-block;margin:4px 12px 4px 0}input[type=number],select{background:transparent;color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:2px 4px}
+button{background:var(--mpc);color:#fff;border:0;border-radius:6px;padding:8px 14px;font-size:14px;cursor:pointer}button.sec{background:transparent;color:var(--fg);border:1px solid var(--line)}button:disabled{opacity:.5}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}.card{border:1px solid var(--line);border-radius:8px;padding:10px}.big{font-size:24px;font-weight:600}
+svg{width:100%;height:auto;display:block}.err{color:#dc2626}.lim{font-size:13px}
+</style></head><body>
+<h1>Battery-aware MPC adaptive cruise control: live demo</h1>
+<div class="mut">Give it a lead-vehicle speed trace. It runs the paper's frozen BMW i3 energy model with a conventional ACC and the battery-aware MPC, and reports Wh/km, gap and safety.</div>
+
+<div class="box"><b>1. Lead-vehicle speed trace</b>
+<p class="mut" style="margin:4px 0">Paste one number per line (speed), or two columns <code>time,speed</code> (CSV). 30 to 180 s of driving.</p>
+<textarea id="trace" placeholder="e.g. 12.1&#10;12.3&#10;12.8 ..."></textarea>
+<div style="margin-top:6px"><input type="file" id="file" accept=".csv,.txt"> <button class="sec" id="ex">Load example (stop-and-go, 150 s)</button></div>
+<label>Unit <select id="unit"><option value="mps">m/s</option><option value="kmh">km/h</option></select></label>
+<label>Sampling <select id="hz"><option value="10">10 Hz</option><option value="5">5 Hz</option><option value="2">2 Hz</option><option value="1" selected>1 Hz</option></select> <span class="mut">(ignored if a time column is given)</span></label>
+</div>
+
+<div class="box"><b>2. Settings</b><br>
+<label>Regen efficiency <input type="range" id="eta" min="0.3" max="1" step="0.05" value="0.65"> <span id="etav">0.65</span></label>
+<label>Regen cap <input type="range" id="cap" min="10" max="100" step="5" value="35"> <span id="capv">35</span> kW</label><br>
+<label>MPC preview <select id="prev"><option value="oracle">oracle: knows the lead's future (ceiling)</option><option value="const">naive: holds the lead's current speed</option></select></label><br>
+<label><input type="checkbox" id="bk"> Speed breakers at <input type="text" id="bkpos" value="200, 600" size="14"> m (lead slows for them, map-aware arms, like experiment S1b)</label>
+</div>
+
+<button id="run">Run simulation</button> <span id="status" class="mut"></span>
+<div id="out" style="display:none">
+<h2>Results</h2><div class="grid" id="cards"></div>
+<h2>Speed</h2><div id="c1"></div><h2>Gap to lead</h2><div id="c2"></div>
+<div class="lim mut" id="note"></div></div>
+
+<h2>What this is, and what it is not</h2>
+<div class="lim mut">
+<p>This runs the same simulation code as the paper's open package, on your trace. It is a research demo, not a vehicle controller and not a range estimate for any real trip.</p>
+<ul><li>The example trace is synthetic and deliberately extreme stop-and-go, so its saving is much larger than the paper's result on real traffic (median -2.83% for the oracle ceiling, 160 real windows). Do not quote it as a finding.</li>
+<li>The energy model is one frozen BMW i3 (1270 kg, regen efficiency and cap as set above); other cars will differ.</li>
+<li>"Oracle" preview is an upper bound on what MPC can gain; it assumes the lead's future speed is known. "Naive" is deployable but gains less.</li>
+<li>Speed breakers use the same stylised scenario as experiment S1b: the lead slows to about 15 km/h at each breaker and the map-aware ACC and MPC see their positions. It is a stylised test, not measured Indian traffic, and your trace is not the paper's data, so the number is not a paper result.</li>
+<li>Limits: 30 to 180 s per run, lead speed 0 to 46 m/s, 20 breakers; the ego car is capped at 38 m/s. Runs take roughly 10 to 25 s (longer traces, and the first run after a quiet spell, are slower). The service is rate-limited and may refuse bursts.</li>
+<li>Uploaded traces are processed to produce the result and are not stored; request logs are kept for 14 days.</li></ul>
+</div>
+
+<script src="config.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+$('eta').oninput=()=>$('etav').textContent=$('eta').value;$('cap').oninput=()=>$('capv').textContent=$('cap').value;
+$('ex').onclick=()=>{const v=[];for(let t=0;t<=150;t++){const c=(t%50);v.push((c<20?8+0.6*c:c<30?20-1.7*(c-20):c<40?3+0.2*(c-30):5+0.7*(c-40)).toFixed(2));}
+ $('trace').value=v.join('\n');$('unit').value='mps';$('hz').value='1';};
+$('file').onchange=e=>{const f=e.target.files[0];if(f)f.text().then(t=>$('trace').value=t)};
+function parse(){const rows=$('trace').value.trim().split(/\r?\n/).map(l=>l.trim()).filter(l=>l&&!/^[a-zA-Z#]/.test(l)).map(l=>l.split(/[,;\s]+/).map(Number));
+ if(!rows.length||rows.some(r=>r.some(x=>!isFinite(x))))throw new Error('Could not read the trace: use numbers only.');
+ if(rows[0].length>=2){const t=rows.map(r=>r[0]),s=rows.map(r=>r[1]);const dt=(t[t.length-1]-t[0])/(t.length-1);const hz=Math.round(1/dt);if(![1,2,5,10].includes(hz))throw new Error('Time column must be evenly spaced at 1, 2, 5 or 10 Hz.');return{speeds:s,hz}}
+ return{speeds:rows.map(r=>r[0]),hz:+$('hz').value}}
+function chart(el,t,series,unit){const W=800,H=240,m={l:46,r:10,t:10,b:28};const all=series.flatMap(s=>s.y);const lo=Math.min(0,...all),hi=Math.max(...all)*1.05||1,T=t[t.length-1]||1;
+ const x=v=>m.l+(v/T)*(W-m.l-m.r),y=v=>H-m.b-((v-lo)/(hi-lo))*(H-m.t-m.b);let g='';
+ for(let i=0;i<=4;i++){const v=lo+(hi-lo)*i/4;g+=`<line x1="${m.l}" x2="${W-m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${m.l-6}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="var(--mut)">${v.toFixed(0)}</text>`}
+ for(let i=0;i<=5;i++){const v=T*i/5;g+=`<text x="${x(v)}" y="${H-8}" text-anchor="middle" font-size="11" fill="var(--mut)">${v.toFixed(0)}s</text>`}
+ const p=series.map(s=>`<polyline fill="none" stroke="${s.c}" stroke-width="${s.w||1.6}" ${s.d?'stroke-dasharray="4 3"':''} points="${t.map((tt,i)=>x(tt)+','+y(s.y[i])).join(' ')}"/>`).join('');
+ const lg=series.map((s,i)=>`<text x="${m.l+8+i*130}" y="${m.t+10}" font-size="12" fill="${s.c}">${s.n}</text>`).join('');
+ el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${unit} chart">${g}${p}${lg}<text x="12" y="${H/2}" font-size="11" fill="var(--mut)" transform="rotate(-90 12 ${H/2})" text-anchor="middle">${unit}</text></svg>`}
+function card(t,v,s){return `<div class="card"><div class="mut">${t}</div><div class="big">${v}</div><div class="mut">${s||''}</div></div>`}
+$('run').onclick=async()=>{const st=$('status');$('out').style.display='none';
+ if(!API_URL){st.innerHTML='<span class="err">Demo backend not deployed yet (API_URL is empty in config.js).</span>';return}
+ let body;try{const p=parse();body={...p,unit:$('unit').value,eta:+$('eta').value,cap_kw:+$('cap').value,preview:$('prev').value};
+  if($('bk').checked)body.breakers=$('bkpos').value.split(/[,\s]+/).filter(Boolean).map(Number)}catch(e){st.innerHTML=`<span class="err">${e.message}</span>`;return}
+ $('run').disabled=true;st.textContent='Running... (10 to 25 s)';
+ try{const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json();if(!r.ok)throw new Error(j.error||'request failed ('+r.status+')');
+  const a=j.acc,m=j.mpc,d=j.energy_change_pct;st.textContent='';$('out').style.display='block';
+  $('cards').innerHTML=card('Energy change, MPC vs ACC',(d>0?'+':'')+d.toFixed(2)+'%',d<0?'MPC uses less battery energy':'MPC uses more')+card('ACC',a.whkm_adj.toFixed(1)+' Wh/km','min gap '+a.dmin.toFixed(1)+' m')+card('MPC',m.whkm_adj.toFixed(1)+' Wh/km','min gap '+m.dmin.toFixed(1)+' m')+card('Safety','ACC '+(a.viol*100).toFixed(1)+'% / MPC '+(m.viol*100).toFixed(1)+'%','of steps below the safe-gap rule');
+  const t=j.trace;chart($('c1'),t.t,[{n:'Lead',y:t.lead,c:'var(--lead)',d:1},{n:'ACC',y:t.acc_v,c:'var(--acc)'},{n:'MPC',y:t.mpc_v,c:'var(--mpc)'}],'speed (m/s)');
+  chart($('c2'),t.t,[{n:'ACC',y:t.acc_gap,c:'var(--acc)'},{n:'MPC',y:t.mpc_gap,c:'var(--mpc)'}],'gap (m)');
+  $('note').textContent=`Simulated ${j.settings.seconds_simulated} s. Regen efficiency ${j.settings.eta}, cap ${j.settings.cap_kw} kW, preview: ${j.settings.preview}. Wh/km is battery energy with the kinetic-energy end correction used in the paper.`
+ }catch(e){st.innerHTML=`<span class="err">${e.message}</span>`}finally{$('run').disabled=false}};
+</script></body></html>
