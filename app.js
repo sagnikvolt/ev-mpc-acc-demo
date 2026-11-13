@@ -17,13 +17,13 @@ const pct = (a, b) => (100 * (a - b) / b);
 const sgn = x => (x > 0 ? '+' : '') + x.toFixed(2).replace('-', '\u2212') + '%';
 
 /* ---------------- worker plumbing ---------------- */
-const worker = new Worker('worker.js?v=20261113b', { type: 'module' });
+const worker = new Worker('worker.js?v=20261114a', { type: 'module' });
 let nextId = 1; const pending = new Map(); let readyRes, readyRej; const ready = new Promise((a, b) => { readyRes = a; readyRej = b; });
-function setBar(frac, msg) { $('lbar').style.transform = 'scaleX(' + frac.toFixed(3) + ')'; $('lmsg').textContent = msg; if (progressSink) progressSink(frac, msg); }
+function setBar(frac, msg) { $('lbar').style.transform = 'scaleX(' + frac.toFixed(3) + ')'; $('lmsg').textContent = readyInfo ? msg : 'Loading the engine… (first visit downloads ~30 MB)'; if (progressSink) progressSink(frac, msg); }
 worker.onmessage = e => {
   const m = e.data;
   if (m.type === 'progress') setBar(m.frac, m.msg);
-  else if (m.type === 'ready') { readyInfo = m; WINDOWS = m.windows; PYV = m.pyodide; setBar(1, 'Python ' + m.pyodide + ' ready in ' + m.secs.toFixed(1) + ' s on your device (first visit downloads tens of megabytes, later visits use the cache)'); $('lbar').parentNode.style.display = 'none'; readyRes(m); initUI(); }
+  else if (m.type === 'ready') { readyInfo = m; WINDOWS = m.windows; PYV = m.pyodide; setBar(1, 'Engine ready · ' + m.secs.toFixed(1) + ' s on your device'); $('lbar').parentNode.style.display = 'none'; readyRes(m); initUI(); }
   else if (m.type === 'result') { const p = pending.get(m.id); if (p) { pending.delete(m.id); p.res(m); } }
   else if (m.type === 'error') { const p = pending.get(m.id); if (p) { pending.delete(m.id); p.rej(new Error(m.msg)); } else { $('lmsg').innerHTML = '<span class="err">Could not start the Python runtime: ' + m.msg + '</span>'; readyRej(new Error(m.msg)); } }
 };

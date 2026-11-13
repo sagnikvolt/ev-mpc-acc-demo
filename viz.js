@@ -11,7 +11,7 @@
   /* ---------- hero: one real window, lead / recorded follower / our car ---------- */
   function hero(el, H) {
     const W = Math.max(280, Math.floor(el.clientWidth)), narrow = W < 480;
-    const m = { l: 36, r: 6 }, hs = narrow ? 140 : 168, hg = narrow ? 80 : 92, hh = 20, gap = 20, bot = 22;
+    const m = { l: 36, r: 6 }, hs = narrow ? 110 : 116, hg = narrow ? 56 : 60, hh = 18, gap = 16, bot = 20;
     const y1 = hh, y2 = hh + hs + gap + hh, Ht = y2 + hg + bot, T = H.t[H.t.length - 1];
     const X = v => m.l + (v / T) * (W - m.l - m.r);
     const vmax = nice(Math.max(...H.lead, ...H.rec_v, ...H.mpc_v), 5), gmax = nice(Math.max(...H.rec_gap.filter(Number.isFinite), ...H.mpc_gap.filter(Number.isFinite)), 10);
@@ -35,21 +35,26 @@
   /* ---------- main chart: one dot per window, change in Wh/km of our MPC vs the recorded commercial-ACC follower ---------- */
   function swarm(el, S) {
     const W = Math.max(280, Math.floor(el.clientWidth)), narrow = W < 520, r = narrow ? 4 : 5, d = 2 * r + 1;
-    const m = { l: 16, r: 16, t: 28, b: 52 }, ch = S.rows.map(q => q.c), lo = Math.min(...ch, 0), hi = Math.max(...ch, 0), pad = (hi - lo) * 0.06;
+    const m = { l: 16, r: 16, t: 46, b: 44 }, ch = S.rows.map(q => q.c), lo = Math.min(...ch, 0, -25), hi = Math.max(...ch, 0), pad = (hi - lo) * 0.06;
     const X = v => m.l + ((v - (lo - pad)) / (hi - lo + 2 * pad)) * (W - m.l - m.r);
     const rows = S.rows.map(q => Object.assign({ x: X(q.c) }, q)).sort((a, b) => a.x - b.x), placed = [];
     rows.forEach(q => { const near = placed.filter(p => Math.abs(p.x - q.x) < d), cands = [0]; near.forEach(p => { const dy = Math.sqrt(d * d - (p.x - q.x) ** 2); cands.push(p.y + dy, p.y - dy); });
       cands.sort((a, b) => Math.abs(a) - Math.abs(b)); q.y = cands.find(c => near.every(p => (p.x - q.x) ** 2 + (p.y - c) ** 2 >= d * d - 0.01)); placed.push(q); });
-    const half = Math.max(88, ...rows.map(q => Math.abs(q.y))) + r + 4, cy = m.t + half, Ht = cy + half + m.b, ay = cy + half;
+    const half = Math.max(40, ...rows.map(q => Math.abs(q.y))) + r + 4, cy = m.t + half, Ht = cy + half + m.b, ay = cy + half;
     const rawStep = (hi - lo) / (narrow ? 5 : 8), step = [1, 2, 5, 10, 20].find(s => s >= rawStep) || 20;
     let g = '';
-    for (let v = Math.ceil((lo - pad) / step) * step; v <= hi + pad; v += step) g += `<line class="grid-h" x1="${X(v)}" x2="${X(v)}" y1="${m.t - 4}" y2="${ay}"/><text x="${X(v)}" y="${ay + 16}" text-anchor="middle" class="${v === 0 ? 'tx' : ''}">${v === 0 ? '0%' : M(v).replace('.00', '') + '%'}</text>`;
+    const ticks = []; for (let v = Math.ceil((lo - pad) / step) * step; v <= hi + pad; v += step) ticks.push(v);
+    if (!ticks.includes(-25)) ticks.push(-25);
+    const tk = ticks.filter(v => v === 0 || v === -25 || (Math.abs(X(v) - X(-25)) > 30 && Math.abs(X(v) - X(0)) > 30));
+    tk.sort((p, q) => p - q);
+    for (const v of tk) g += `<line class="grid-h" x1="${X(v)}" x2="${X(v)}" y1="${m.t - 4}" y2="${ay}"/><text x="${X(v)}" y="${ay + 16}" text-anchor="middle" class="${v === 0 || v === -25 ? 'tx' : ''}">${v === 0 ? '0%' : M(v).replace('.00', '') + '%'}</text>`;
     g += `<line class="zero" x1="${X(0)}" x2="${X(0)}" y1="${m.t - 4}" y2="${ay}"/>`;
     g += `<line class="med" x1="${X(S.median)}" x2="${X(S.median)}" y1="${m.t - 4}" y2="${ay}"/>`;
-    g += `<text class="acc" x="${X(S.median) - 8}" y="${m.t - 10}" text-anchor="end">median ${M(S.median)}%</text>`;
-    if (S.hero_win !== null) g += `<text x="${X(S.median) + 8}" y="${m.t - 10}">window ${S.hero_win}, hero chart</text>`;
+    const lab = S.hero_win !== null ? `window ${S.hero_win}, hero chart` : '', fit = X(S.median) + 8 + 11 * 0.62 * Math.max(lab.length, 14) < W - m.r, lx = fit ? X(S.median) + 8 : X(S.median) - 8, an = fit ? 'start' : 'end';
+    g += `<text class="acc" x="${lx}" y="${m.t - 26}" text-anchor="${an}">median ${M(S.median)}%</text>`;
+    if (lab) g += `<text x="${lx}" y="${m.t - 12}" text-anchor="${an}">${lab}</text>`;
     const nl = rows.filter(q => q.c < 0).length, nh = rows.length - nl;
-    g += `<text class="tx" x="${m.l}" y="${ay + 40}">← lower in ${nl} of ${rows.length}</text><text class="tx" x="${W - m.r}" y="${ay + 40}" text-anchor="end">higher in ${nh} →</text>`;
+    g += `<text class="tx" x="${m.l}" y="${ay + 36}">← lower in ${nl} of ${rows.length}</text><text class="tx" x="${W - m.r}" y="${ay + 36}" text-anchor="end">higher in ${nh} →</text>`;
     rows.filter(q => q.w !== S.hero_win).forEach(q => { g += `<circle class="dot" cx="${q.x.toFixed(1)}" cy="${(cy + q.y).toFixed(1)}" r="${r}"><title>window ${q.w}, ${q.v}: ${M(q.c)}% (${q.r.toFixed(1)} to ${q.m.toFixed(1)} Wh/km)</title></circle>`; });
     rows.filter(q => q.w === S.hero_win).forEach(q => { g += `<circle class="dot hero" cx="${q.x.toFixed(1)}" cy="${(cy + q.y).toFixed(1)}" r="${r + 1.5}"><title>window ${q.w}, ${q.v}: ${M(q.c)}% (${q.r.toFixed(1)} to ${q.m.toFixed(1)} Wh/km)</title></circle>`; });
     el.innerHTML = `<svg class="swarm" viewBox="0 0 ${W} ${Ht}" width="${W}" height="${Ht}" role="img" aria-label="Change in battery energy for each of ${rows.length} windows; lower in ${nl}; median ${M(S.median)} percent">${g}</svg>`;
