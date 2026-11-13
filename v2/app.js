@@ -2,25 +2,28 @@
 /* Demo v2 front end. All simulation / training runs in worker.js (Pyodide) on the visitor's device. */
 const $ = id => document.getElementById(id);
 const ARMS = {
-  acc: { name: 'Tuned ACC', c: 'var(--c-acc)' }, smc: { name: 'SMC', c: 'var(--c-smc)' }, sac42: { name: 'Plain SAC (seed 42)', c: 'var(--c-sac42)' },
-  safesac42: { name: 'Safe SAC (seed 42)', c: 'var(--c-safesac42)' }, mpc_const: { name: 'MPC const-speed (our design car)', c: 'var(--c-mpc_const)' },
-  mpc_oracle: { name: 'MPC oracle (ceiling, not deployable)', c: 'var(--c-mpc_oracle)' }
+  acc: { name: 'Tuned ACC', c: 'var(--c-acc)', w: 1.5, dash: '6 4' }, smc: { name: 'SMC', c: 'var(--c-smc)', w: 1.5, dash: '1.5 3.5' }, sac42: { name: 'Plain SAC (seed 42)', c: 'var(--c-sac42)', w: 1.5, dash: '9 3 1.5 3' },
+  safesac42: { name: 'Safe SAC (seed 42)', c: 'var(--c-safesac42)', w: 1, dash: '12 4' }, mpc_const: { name: 'MPC const-speed (our design car)', c: 'var(--c-mpc_const)', w: 2.25 },
+  mpc_oracle: { name: 'MPC oracle (ceiling, not deployable)', c: 'var(--c-mpc_oracle)', w: 1, dash: '3 3' }
 };
+const REC = { n: 'Recorded follower', name: 'Recorded follower', c: 'var(--c-recorded)', w: 1.5 }, LEAD = { name: 'Lead', c: 'var(--lead)', w: 1 };
+const swatch = o => `<svg class="sw" viewBox="0 0 24 8" aria-hidden="true"><line x1="0" x2="24" y1="4" y2="4" style="stroke:${o.c};stroke-width:${o.w || 1.5};stroke-linecap:round"${o.dash ? ` stroke-dasharray="${o.dash}"` : ''}/></svg>`;
+document.querySelectorAll('[data-arm]').forEach(e => { e.innerHTML = swatch(ARMS[e.dataset.arm]); });
 const ARM_ORDER = ['acc', 'smc', 'sac42', 'safesac42', 'mpc_const', 'mpc_oracle'];
 const SIZES = [10000, 25000, 50000, 100000, 0];
 let REF = null, MLREF = null, WINDOWS = [], PYV = '', readyInfo = null, progressSink = null;
 const fmt = (x, d = 2) => (x === null || x === undefined || Number.isNaN(x)) ? '-' : Number(x).toFixed(d);
 const pct = (a, b) => (100 * (a - b) / b);
-const sgn = x => (x > 0 ? '+' : '') + x.toFixed(2) + '%';
+const sgn = x => (x > 0 ? '+' : '') + x.toFixed(2).replace('-', '\u2212') + '%';
 
 /* ---------------- worker plumbing ---------------- */
-const worker = new Worker('worker.js', { type: 'module' });
+const worker = new Worker('worker.js?v=20261113b', { type: 'module' });
 let nextId = 1; const pending = new Map(); let readyRes, readyRej; const ready = new Promise((a, b) => { readyRes = a; readyRej = b; });
-function setBar(frac, msg) { $('lbar').style.width = Math.round(100 * frac) + '%'; $('lmsg').textContent = msg; if (progressSink) progressSink(frac, msg); }
+function setBar(frac, msg) { $('lbar').style.transform = 'scaleX(' + frac.toFixed(3) + ')'; $('lmsg').textContent = msg; if (progressSink) progressSink(frac, msg); }
 worker.onmessage = e => {
   const m = e.data;
   if (m.type === 'progress') setBar(m.frac, m.msg);
-  else if (m.type === 'ready') { readyInfo = m; WINDOWS = m.windows; PYV = m.pyodide; setBar(1, 'Ready. Python ' + m.pyodide + ' runtime started in ' + m.secs.toFixed(1) + ' s (the first visit downloads tens of megabytes; later visits use the browser cache).'); $('lbar').parentNode.style.display = 'none'; readyRes(m); initUI(); }
+  else if (m.type === 'ready') { readyInfo = m; WINDOWS = m.windows; PYV = m.pyodide; setBar(1, 'Python ' + m.pyodide + ' ready in ' + m.secs.toFixed(1) + ' s on your device (first visit downloads tens of megabytes, later visits use the cache)'); $('lbar').parentNode.style.display = 'none'; readyRes(m); initUI(); }
   else if (m.type === 'result') { const p = pending.get(m.id); if (p) { pending.delete(m.id); p.res(m); } }
   else if (m.type === 'error') { const p = pending.get(m.id); if (p) { pending.delete(m.id); p.rej(new Error(m.msg)); } else { $('lmsg').innerHTML = '<span class="err">Could not start the Python runtime: ' + m.msg + '</span>'; readyRej(new Error(m.msg)); } }
 };
@@ -30,23 +33,26 @@ Promise.all([fetch('data/reference.json').then(r => r.json()), fetch('data/ml_re
 worker.postMessage({ cmd: 'init' });
 
 /* ---------------- charts ---------------- */
-function lineChart(el, t, series, ylabel, xlabel) {
-  const W = 800, H = 250, m = { l: 50, r: 10, t: 8, b: 30 };
+const chartJobs = {};
+function lineChart(el, t, series, ylabel) {
+  chartJobs[el.id] = [el, t, series, ylabel];
+  const W = Math.max(280, Math.floor(el.clientWidth) || 640), H = W < 480 ? 200 : 240, m = { l: 44, r: 8, t: 8, b: 28 };
   const all = series.flatMap(s => s.y.filter(v => v !== null && Number.isFinite(v)));
-  if (!all.length) { el.innerHTML = '<div class="mut lim">no data</div>'; return; }
+  if (!all.length) { el.innerHTML = '<div class="mut lim">No data</div>'; return; }
   const lo = Math.min(0, ...all), hi = (Math.max(...all) * 1.05) || 1, T = t[t.length - 1] || 1;
   const x = v => m.l + (v / T) * (W - m.l - m.r), y = v => H - m.b - ((v - lo) / (hi - lo)) * (H - m.t - m.b);
   let g = '';
-  for (let i = 0; i <= 4; i++) { const v = lo + (hi - lo) * i / 4; g += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${m.l - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--mut)">${v.toFixed(hi > 20 ? 0 : 1)}</text>`; }
-  for (let i = 0; i <= 5; i++) { const v = T * i / 5; g += `<text x="${x(v)}" y="${H - 10}" text-anchor="middle" font-size="11" fill="var(--mut)">${v.toFixed(0)}s</text>`; }
+  for (let i = 0; i <= 4; i++) { const v = lo + (hi - lo) * i / 4; g += `<line class="grid-h" x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}"/><text x="${m.l - 8}" y="${y(v) + 4}" text-anchor="end">${v.toFixed(hi > 20 ? 0 : 1)}</text>`; }
+  const nt = W < 480 ? 3 : 5; for (let i = 0; i <= nt; i++) { const v = T * i / nt; g += `<text x="${x(v)}" y="${H - 8}" text-anchor="${i === 0 ? 'start' : i === nt ? 'end' : 'middle'}">${v.toFixed(0)} s</text>`; }
   const paths = series.map(s => {
     let d = '', pen = false;
     s.y.forEach((v, i) => { if (v === null || !Number.isFinite(v)) { pen = false; return; } d += (pen ? 'L' : 'M') + x(t[i]).toFixed(1) + ' ' + y(v).toFixed(1); pen = true; });
-    return `<path d="${d}" fill="none" stroke="${s.c}" stroke-width="${s.w || 1.5}" ${s.dash ? 'stroke-dasharray="4 3"' : ''}/>`;
-  }).join('');
-  const lg = series.map(s => `<span class="arm"><span class="sw" style="background:${s.c}"></span>${s.n}</span>`).join('');
-  el.innerHTML = `<div class="legend">${lg}</div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${ylabel}">${g}${paths}<text x="12" y="${H / 2}" font-size="11" fill="var(--mut)" transform="rotate(-90 12 ${H / 2})" text-anchor="middle">${ylabel}</text></svg>`;
+    return `<path class="ln" d="${d}" style="stroke:${s.c};stroke-width:${s.w || 1.5}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ''}/>`;
+  });
+  const lg = series.map(s => `<span class="lg">${swatch(s)}${s.n}</span>`).join('');
+  el.innerHTML = `<div class="legend">${lg}</div><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${ylabel}">${g}${paths.join('')}</svg><div class="meta" style="margin-top:4px">${ylabel}</div>`;
 }
+let rzT = 0; window.addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(() => Object.values(chartJobs).forEach(j => { const sv = j[0].querySelector('svg'); if (sv && j[0].offsetParent && Math.abs(j[0].clientWidth - (+sv.getAttribute('width'))) > 8) lineChart(...j); }), 150); });
 
 /* ---------------- run panel ---------------- */
 function initUI() {
@@ -70,7 +76,7 @@ function parseTrace() {
   if (rows[0].length >= 2) { const t = rows.map(r => r[0]), s = rows.map(r => r[1]); const dt = (t[t.length - 1] - t[0]) / (t.length - 1); const hz = Math.round(1 / dt); if (![1, 2, 5, 10].includes(hz)) throw new Error('Time column must be evenly spaced at 1, 2, 5 or 10 Hz.'); return { speeds: s, hz }; }
   return { speeds: rows.map(r => r[0]), hz: +$('hz').value };
 }
-function unsafeStr(o) { return o.short_max > 0.5 ? `<span class="err">YES (${o.short_max.toFixed(1)} m short)</span>` : 'no'; }
+function unsafeStr(o) { return o.short_max > 0.5 ? `<span class="err">yes (${o.short_max.toFixed(1)} m short)</span>` : 'no'; }
 async function runSim() {
   const eta = +$('eta').value, cap = +$('cap').value, mode = readMode(), arms = ARM_ORDER.filter(a => $('arm_' + a).checked);
   const st = $('status'); st.textContent = ''; $('out').style.display = 'none';
@@ -83,13 +89,13 @@ async function runSim() {
   $('run').disabled = true; const t0 = performance.now(), R = {}; let rec = null;
   try {
     for (let i = 0; i < arms.length; i++) {
-      st.textContent = `Running ${ARMS[arms[i]].name} (${i + 1} of ${arms.length}) on your device...`;
+      st.textContent = `Running ${ARMS[arms[i]].name} (${i + 1} of ${arms.length}) on your device`;
       const m = mode === 'window' ? await call({ cmd: 'runWindow', arm: arms[i], idx, eta, cap }) : await call({ cmd: 'runUpload', arm: arms[i], speeds: JSON.stringify(up.speeds), hz: up.hz, unit: $('unit').value, eta, cap });
       R[arms[i]] = m.res; R[arms[i]]._secs = m.secs;
     }
     if (mode === 'window') rec = (await call({ cmd: 'runWindow', arm: 'recorded', idx, eta, cap })).res;
   } catch (e) { st.innerHTML = `<span class="err">${e.message.split('\n').filter(Boolean).pop()}</span>`; $('run').disabled = false; return; }
-  const secs = (performance.now() - t0) / 1000; st.textContent = `Computed on your device in ${secs.toFixed(1)} s. Nothing was sent to a server.`;
+  const secs = (performance.now() - t0) / 1000; st.innerHTML = `Computed on your device in <span class="ro">${secs.toFixed(1)} s</span> Nothing was sent to a server`;
   render(R, rec, arms, mode, idx, eta, cap, secs); $('run').disabled = false;
 }
 $('run').onclick = runSim;
@@ -98,9 +104,9 @@ function render(R, rec, arms, mode, idx, eta, cap, secs) {
   const dflt = Math.abs(eta - 0.65) < 1e-9 && Math.abs(cap - 35) < 1e-9, stored = (mode === 'window' && dflt && REF) ? REF.windows[idx] : null;
   const base = R.acc ? R.acc.whkm_adj : null, recW = rec ? rec.whkm_adj : null;
   let h = '<table><tr><th>Controller</th><th>Wh/km (your browser)</th>' + (stored ? '<th>Stored Python result (paper)</th><th>Browser vs stored</th>' : '') + '<th>vs tuned ACC</th>' + (rec ? '<th>vs recorded follower</th>' : '') + '<th>Mean gap (m)</th><th>Jerk RMS</th><th>Unsafe?</th><th>Time</th></tr>';
-  if (rec) h += `<tr class="hl"><td><span class="sw" style="background:var(--c-recorded)"></span>Recorded follower (replayed through the same battery model)</td><td>${fmt(rec.whkm_adj, 1)}</td>${stored ? `<td>${fmt(stored.recorded.whkm_adj, 1)}</td><td>${sgn(pct(rec.whkm_adj, stored.recorded.whkm_adj))}</td>` : ''}<td>${base ? sgn(pct(rec.whkm_adj, base)) : '-'}</td><td>0 (reference)</td><td>${fmt(rec.gap_mean, 1)}</td><td>${fmt(rec.jerk_rms)}</td><td>n/a</td><td>-</td></tr>`;
+  if (rec) h += `<tr class="hl"><td>${swatch(REC)}Recorded follower (replayed through the same battery model)</td><td>${fmt(rec.whkm_adj, 1)}</td>${stored ? `<td>${fmt(stored.recorded.whkm_adj, 1)}</td><td>${sgn(pct(rec.whkm_adj, stored.recorded.whkm_adj))}</td>` : ''}<td>${base ? sgn(pct(rec.whkm_adj, base)) : '-'}</td><td>0 (reference)</td><td>${fmt(rec.gap_mean, 1)}</td><td>${fmt(rec.jerk_rms)}</td><td>n/a</td><td>-</td></tr>`;
   arms.forEach(a => {
-    const o = R[a]; let cells = `<td><span class="sw" style="background:${ARMS[a].c}"></span>${ARMS[a].name}</td><td>${fmt(o.whkm_adj, 1)}</td>`;
+    const o = R[a]; let cells = `<td>${swatch(ARMS[a])} ${ARMS[a].name}</td><td>${fmt(o.whkm_adj, 1)}</td>`;
     if (stored) { const s = stored[a]; cells += `<td>${fmt(s.whkm_adj, 1)}${s.short_max > 0.5 ? ' (unsafe)' : ''}</td><td>${sgn(pct(o.whkm_adj, s.whkm_adj))}</td>`; }
     cells += `<td>${base && a !== 'acc' ? sgn(pct(o.whkm_adj, base)) : (a === 'acc' ? '0 (reference)' : '-')}</td>`;
     if (rec) cells += `<td>${sgn(pct(o.whkm_adj, recW))}</td>`;
@@ -112,10 +118,10 @@ function render(R, rec, arms, mode, idx, eta, cap, secs) {
   if (mode === 'window') notes.push(dflt ? 'The stored Python result is the number in the paper for this window (same controller code, OSQP solver for MPC, PyTorch actors for SAC). MPC rows can differ from it by up to about 0.2% because the browser uses the Clarabel solver.' : 'You changed the regen settings, so the stored paper results (computed at 0.65 / 35 kW) are not shown; the recorded follower is replayed again with your settings.');
   else notes.push(`Uploaded trace: ${(R[arms[0]].seconds_simulated).toFixed(0)} s simulated (the last 30 s of a trace give the MPC its look-ahead). This is your data, not a paper result. The oracle sees the lead car's future, so it is a ceiling, not a deployable controller.`);
   $('tnote').innerHTML = notes.join('<br>');
-  const first = R[arms[0]], t = first.trace.t, S = [{ n: 'Lead', y: first.trace.lead, c: 'var(--lead)', dash: 1 }], G = [], E = [];
-  if (rec) { S.push({ n: 'Recorded follower', y: rec.trace.v, c: 'var(--c-recorded)', w: 1.2 }); G.push({ n: 'Recorded follower (gap sensor)', y: rec.trace.gap, c: 'var(--c-recorded)', w: 1.2 }); }
-  arms.forEach(a => { const tr = R[a].trace; S.push({ n: ARMS[a].name, y: tr.v, c: ARMS[a].c }); G.push({ n: ARMS[a].name, y: tr.gap, c: ARMS[a].c }); E.push({ n: ARMS[a].name, y: tr.wh, c: ARMS[a].c }); });
-  lineChart($('c1'), t, S, 'speed (m/s)'); lineChart($('c2'), t, G, 'gap to lead (m)'); lineChart($('c3'), t, E, 'cumulative battery energy (Wh)');
+  const first = R[arms[0]], t = first.trace.t, S = [Object.assign({ y: first.trace.lead }, LEAD, { n: 'Lead' })], G = [], E = [];
+  if (rec) { S.push(Object.assign({ y: rec.trace.v }, REC)); G.push(Object.assign({ y: rec.trace.gap }, REC, { n: 'Recorded follower (gap sensor)' })); }
+  arms.forEach(a => { const tr = R[a].trace, o = ARMS[a]; S.push(Object.assign({}, o, { n: o.name, y: tr.v })); G.push(Object.assign({}, o, { n: o.name, y: tr.gap })); E.push(Object.assign({}, o, { n: o.name, y: tr.wh })); });
+  lineChart($('c1'), t, S, 'speed, m/s'); lineChart($('c2'), t, G, 'gap to lead, m'); lineChart($('c3'), t, E, 'cumulative battery energy, Wh');
   window.__lastRun = { R, rec, arms, mode, idx, eta, cap, secs };
 }
 
@@ -125,10 +131,10 @@ progressSink = null;
 async function runTrain() {
   const model = $('model').value, mode = $('tmode').value, n = SIZES[+$('size').value], imp = $('imp').checked, st = $('tstatus');
   $('trainout').style.display = 'none'; $('train').disabled = true; const t0 = performance.now();
-  progressSink = (f, m) => { st.textContent = m; }; st.textContent = 'Starting...';
+  progressSink = (f, m) => { st.textContent = m; }; st.textContent = 'Starting';
   try {
     const m = await call({ cmd: 'train', model, mode, n_target: n, importance: imp }); const r = m.res;
-    st.textContent = `Done in ${((performance.now() - t0) / 1000).toFixed(1)} s on your device (model fit ${r.train_s.toFixed(1)} s).`; renderTrain(r, model, mode, n);
+    st.innerHTML = `Done in <span class="ro">${((performance.now() - t0) / 1000).toFixed(1)} s</span> on your device (model fit ${r.train_s.toFixed(1)} s)`; renderTrain(r, model, mode, n);
   } catch (e) { st.innerHTML = `<span class="err">${e.message.split('\n').filter(Boolean).pop()}</span>`; }
   progressSink = null; $('train').disabled = false;
 }
@@ -142,18 +148,18 @@ function paperRef(model, mode, n) {
 function renderTrain(r, model, mode, n) {
   $('trainout').style.display = 'block'; const p = paperRef(model, mode, n), key = model + '_' + mode;
   const names = { ridge: 'Ridge', knn: 'KNN (k=25, 70k-row subsample)', svr: 'SVR (RBF, 8k subset)', lgbm: 'LightGBM (400 trees)' };
-  let h = '<table><tr><th></th><th>Your browser</th><th>Paper (fold 0)</th></tr>';
+  let h = '<table style="min-width:0"><tr><th></th><th>Your browser</th><th>Paper (fold 0)</th></tr>';
   h += `<tr><td>Model</td><td colspan="2" style="text-align:left">${names[model]}, ${mode === 'resid' ? 'physics + ML residual' : 'pure ML (no physics)'}</td></tr>`;
   h += `<tr><td>Training samples / trips</td><td>${r.n_train.toLocaleString()} / ${r.n_trips}</td><td>${p && p.n_train ? p.n_train.toLocaleString() + ' / ' + p.n_trips : (p ? 'all 4 other folds' : '-')}</td></tr>`;
-  h += `<tr><td>Held-out power RMSE (kW), fold 0, ${r.n_test.toLocaleString()} samples</td><td><b>${r.rmse_kw.toFixed(3)}</b></td><td>${p ? p.rmse_kw.toFixed(3) : 'no stored paper number for this setting'}</td></tr>`;
+  h += `<tr><td>Held-out power RMSE (kW), fold 0, ${r.n_test.toLocaleString()} samples</td><td><strong>${r.rmse_kw.toFixed(3)}</strong></td><td>${p ? p.rmse_kw.toFixed(3) : 'no stored paper number for this setting'}</td></tr>`;
   if (p && p.kind === 'full') h += `<tr><td>MAE (kW) / R2</td><td>${r.mae_kw.toFixed(3)} / ${r.r2.toFixed(3)}</td><td>${p.mae_kw.toFixed(3)} / ${p.r2.toFixed(3)}</td></tr><tr><td>Trip-energy error: median |error| over 14 held-out trips / pooled</td><td>${r.trip_med_abs.toFixed(2)}% / ${sgn(r.pooled_err)}</td><td>${p.trip_med_abs.toFixed(2)}% / ${sgn(p.pooled_err)}</td></tr>`;
   else h += `<tr><td>MAE (kW) / R2</td><td>${r.mae_kw.toFixed(3)} / ${r.r2.toFixed(3)}</td><td>-</td></tr><tr><td>Trip-energy error: median |error| over 14 held-out trips / pooled</td><td>${r.trip_med_abs.toFixed(2)}% / ${sgn(r.pooled_err)}</td><td>-</td></tr>`;
   const ph = MLREF && MLREF.rmse_fold0.physics_resid; if (ph) h += `<tr><td>For reference: physics model alone</td><td>-</td><td>${ph.rmse_kw.toFixed(3)} kW</td></tr>`;
   h += '</table>'; $('tres').innerHTML = h;
   if (r.importance) {
     const pi = MLREF && MLREF.importance_fold0[key], names2 = Object.keys(r.importance).sort((a, b) => r.importance[b] - r.importance[a]), mx = Math.max(0.01, ...names2.map(k => Math.max(r.importance[k], pi && pi[k] !== undefined ? pi[k] : 0)));
-    let b = `<div class="lim mut">Increase in held-out power RMSE (kW) when one input group is shuffled (grouped permutation importance; fold 0; ${model === 'lgbm' ? 'all held-out rows, 3 repeats' : '5,000 held-out rows, 2 repeats'}). Green = your run; grey = paper's stored fold-0 value${pi ? '' : ' (not stored for this model)'}.</div>`;
-    names2.forEach(k => { const v = r.importance[k], w = pi && pi[k] !== undefined ? pi[k] : null; b += `<div class="imp"><div>${k}</div><div><div class="b b1" style="width:${Math.max(0, 100 * v / mx)}%"></div><span class="v">${v.toFixed(3)}</span>${w !== null ? `<div class="b b2" style="width:${Math.max(0, 100 * w / mx)}%"></div><span class="v">${w.toFixed(3)}</span>` : ''}</div></div>`; });
+    let b = `<div class="lim mut" style="margin-bottom:12px">Increase in held-out power RMSE (kW) when one input group is shuffled (grouped permutation importance; fold 0; ${model === 'lgbm' ? 'all held-out rows, 3 repeats' : '5,000 held-out rows, 2 repeats'}). Thick bar = your run, the top input in teal; thin bar = paper's stored fold-0 value${pi ? '' : ' (not stored for this model)'}.</div>`;
+    names2.forEach((k, ri) => { const v = r.importance[k], w = pi && pi[k] !== undefined ? pi[k] : null; b += `<div class="imp"><div>${k}</div><div><div class="b b1${ri === 0 ? ' top' : ''}" style="width:${Math.max(0, 100 * v / mx)}%"></div><span class="v">${v.toFixed(3)}</span>${w !== null ? `<div class="b b2" style="width:${Math.max(0, 100 * w / mx)}%"></div><span class="v">${w.toFixed(3)}</span>` : ''}</div></div>`; });
     $('timp').innerHTML = b;
   } else $('timp').innerHTML = '<div class="lim mut">Importance not computed (tick the box to compute it).</div>';
   window.__lastTrain = r;
