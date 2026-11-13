@@ -1,0 +1,34 @@
+:root{--bg:#fff;--fg:#1a1a1a;--mut:#666;--line:#ddd;--acc:#c2410c;--mpc:#0f766e;--lead:#888;--rec:#111;--soft:#f6f6f6;--bad:#dc2626;--ok:#15803d;
+--c-acc:#c2410c;--c-smc:#a16207;--c-sac42:#7c3aed;--c-safesac42:#2563eb;--c-mpc_const:#0f766e;--c-mpc_oracle:#06b6d4;--c-recorded:#111}
+@media(prefers-color-scheme:dark){:root{--bg:#161616;--fg:#eee;--mut:#aaa;--line:#333;--acc:#fb923c;--mpc:#2dd4bf;--lead:#999;--rec:#eee;--soft:#1e1e1e;--bad:#f87171;--ok:#4ade80;
+--c-acc:#fb923c;--c-smc:#facc15;--c-sac42:#a78bfa;--c-safesac42:#60a5fa;--c-mpc_const:#2dd4bf;--c-mpc_oracle:#22d3ee;--c-recorded:#eee}}
+*{box-sizing:border-box}
+body{font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--fg);max-width:960px;margin:0 auto;padding:16px}
+h1{font-size:23px;margin:0 0 4px}h2{font-size:18px;margin:34px 0 8px;padding-top:10px;border-top:1px solid var(--line)}h3{font-size:15px;margin:20px 0 6px}
+.mut{color:var(--mut)}.lim{font-size:13px}.err{color:var(--bad)}.ok{color:var(--ok)}
+nav{margin:10px 0 0;font-size:14px}nav a{margin-right:14px;color:var(--mpc);text-decoration:none}nav a:hover{text-decoration:underline}
+a{color:var(--mpc)}
+.box{border:1px solid var(--line);border-radius:8px;padding:12px;margin:10px 0}
+textarea{width:100%;height:80px;font:12px monospace;background:transparent;color:var(--fg);border:1px solid var(--line);border-radius:6px}
+label{display:inline-block;margin:4px 12px 4px 0}
+input[type=number],input[type=text],select{background:transparent;color:var(--fg);border:1px solid var(--line);border-radius:4px;padding:3px 5px;font:inherit}
+select option{background:var(--bg);color:var(--fg)}
+button{background:var(--mpc);color:#fff;border:0;border-radius:6px;padding:8px 14px;font-size:14px;cursor:pointer}button.sec{background:transparent;color:var(--fg);border:1px solid var(--line)}button:disabled{opacity:.5;cursor:default}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}.card{border:1px solid var(--line);border-radius:8px;padding:10px}.big{font-size:24px;font-weight:600}
+svg{width:100%;height:auto;display:block}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:6px 0}th,td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:right;vertical-align:top}th:first-child,td:first-child{text-align:left}th{font-weight:600;background:var(--soft)}
+.tw{overflow-x:auto}.hl td{background:var(--soft)}
+.src{font-size:12px;color:var(--mut);margin:2px 0 10px}
+.bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden}.bar>div{height:100%;width:0;background:var(--mpc);transition:width .3s}
+#loadbox{position:sticky;top:0;z-index:5;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:10px 0;font-size:13px}
+fieldset{border:1px solid var(--line);border-radius:6px;margin:8px 0;padding:6px 10px}legend{font-size:13px;color:var(--mut)}
+.arm{display:inline-block;margin:2px 14px 2px 0}.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px}
+.figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}.figs figure{margin:0}.figs img{width:100%;border:1px solid var(--line);border-radius:6px;background:#fff}.figs figcaption{font-size:12px;color:var(--mut)}
+footer{margin:40px 0 10px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--mut)}
+.pill{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:10px;padding:0 6px;margin-left:4px;color:var(--mut)}
+.warn{border-left:3px solid var(--acc);padding:4px 10px;margin:8px 0;background:var(--soft);font-size:13px}
+@media(max-width:600px){body{padding:10px}.big{font-size:20px}}
+.imp{display:grid;grid-template-columns:170px 1fr;gap:6px;align-items:center;margin:3px 0;font-size:12px}
+.imp .b{height:11px;border-radius:2px;min-width:1px}.imp .b1{background:var(--mpc)}.imp .b2{background:var(--lead);margin-top:2px}.imp span.v{margin-left:6px;color:var(--mut)}
+.row{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center}
+.chartbox{margin:8px 0}.legend{font-size:12px;margin:2px 0 4px}

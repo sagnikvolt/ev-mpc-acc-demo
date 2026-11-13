@@ -1,0 +1,1 @@
+{"gamma": 0.1, "sac_steps": 100000, "safe_steps": 140000}
