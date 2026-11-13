@@ -1,0 +1,64 @@
+'use strict';
+/* Static result charts: the hero replay and the 79-window dot strip. Data comes from JSON embedded in index.html by build_site.py
+   (hero.json and per_window.csv); nothing here is typed by hand and no Python runtime is needed. Drawn at the real pixel width so text stays readable. */
+(function () {
+  const $ = id => document.getElementById(id);
+  const M = x => (x < 0 ? '−' : '') + Math.abs(x).toFixed(2);   // one number format: true minus, two decimals for percentages
+  const dataOf = id => { const n = $(id); return n ? JSON.parse(n.textContent) : null; };
+  const path = (xs, ys, X, Y) => { let d = '', pen = false; ys.forEach((v, i) => { if (v === null || !Number.isFinite(v)) { pen = false; return; } d += (pen ? 'L' : 'M') + X(xs[i]).toFixed(1) + ' ' + Y(v).toFixed(1); pen = true; }); return d; };
+  const nice = (hi, step) => Math.max(step, Math.ceil(hi / step) * step);
+
+  /* ---------- hero: one real window, lead / recorded follower / our car ---------- */
+  function hero(el, H) {
+    const W = Math.max(280, Math.floor(el.clientWidth)), narrow = W < 480;
+    const m = { l: 36, r: 6 }, hs = narrow ? 140 : 168, hg = narrow ? 80 : 92, hh = 20, gap = 20, bot = 22;
+    const y1 = hh, y2 = hh + hs + gap + hh, Ht = y2 + hg + bot, T = H.t[H.t.length - 1];
+    const X = v => m.l + (v / T) * (W - m.l - m.r);
+    const vmax = nice(Math.max(...H.lead, ...H.rec_v, ...H.mpc_v), 5), gmax = nice(Math.max(...H.rec_gap.filter(Number.isFinite), ...H.mpc_gap.filter(Number.isFinite)), 10);
+    const Y1 = v => y1 + hs - (v / vmax) * hs, Y2 = v => y2 + hg - (v / gmax) * hg;
+    let g = `<text x="${m.l}" y="${y1 - 8}">speed, m/s</text><text x="${m.l}" y="${y2 - 8}">gap to the lead car, m</text>`;
+    for (let v = 0; v <= vmax; v += 5) g += `<line class="grid-h" x1="${m.l}" x2="${W - m.r}" y1="${Y1(v)}" y2="${Y1(v)}"/><text x="${m.l - 8}" y="${Y1(v) + 4}" text-anchor="end">${v}</text>`;
+    const gs = gmax > 40 ? 20 : 10; for (let v = 0; v <= gmax; v += gs) g += `<line class="grid-h" x1="${m.l}" x2="${W - m.r}" y1="${Y2(v)}" y2="${Y2(v)}"/><text x="${m.l - 8}" y="${Y2(v) + 4}" text-anchor="end">${v}</text>`;
+    const ts = narrow ? 40 : 20; for (let v = 0; v <= T; v += ts) g += `<text x="${X(v)}" y="${Ht - 6}" text-anchor="${v === 0 ? 'start' : 'middle'}">${v} s</text>`;
+    g += `<path class="ln ln-lead" d="${path(H.t, H.lead, X, Y1)}"/><path class="ln ln-rec" d="${path(H.t, H.rec_v, X, Y1)}"/><path class="ln ln-mpc" d="${path(H.t, H.mpc_v, X, Y1)}"/>`;
+    g += `<path class="ln ln-rec" d="${path(H.t, H.rec_gap, X, Y2)}"/><path class="ln ln-mpc" d="${path(H.t, H.mpc_gap, X, Y2)}"/>`;
+    g += `<g id="hx" style="display:none"><line class="grid-h" id="hxl" y1="${y1}" y2="${y2 + hg}" style="stroke:var(--text3)"/></g>`;
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${Ht}" width="${W}" height="${Ht}" role="img" aria-label="Speed and gap over time for the median test window: lead car, recorded follower and our MPC car">${g}<rect id="hhit" x="${m.l}" y="0" width="${W - m.l - m.r}" height="${Ht}" fill="transparent" style="touch-action:pan-y"/></svg>`;
+    const sc = $('hero-scrub'), gx = $('hx'), gl = $('hxl'), hit = $('hhit'), f1 = v => v === null ? '-' : v.toFixed(1);
+    const move = e => { const r = hit.getBoundingClientRect(), px = (e.clientX - r.left) / r.width * (W - m.l - m.r), i = Math.max(0, Math.min(H.t.length - 1, Math.round(px / (W - m.l - m.r) * T / 0.5)));
+      gx.style.display = ''; gl.setAttribute('x1', X(H.t[i])); gl.setAttribute('x2', X(H.t[i]));
+      if (sc) sc.innerHTML = `t ${H.t[i].toFixed(1)} s &middot; lead ${f1(H.lead[i])} &middot; recorded ${f1(H.rec_v[i])} &middot; ours ${f1(H.mpc_v[i])} m/s &middot; gap ${f1(H.rec_gap[i])} / ${f1(H.mpc_gap[i])} m`; };
+    hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move);
+    hit.addEventListener('pointerleave', () => { gx.style.display = 'none'; if (sc) sc.textContent = sc.dataset.idle; });
+  }
+
+  /* ---------- main chart: one dot per window, change in Wh/km of our MPC vs the recorded commercial-ACC follower ---------- */
+  function swarm(el, S) {
+    const W = Math.max(280, Math.floor(el.clientWidth)), narrow = W < 520, r = narrow ? 4 : 5, d = 2 * r + 1;
+    const m = { l: 16, r: 16, t: 28, b: 52 }, ch = S.rows.map(q => q.c), lo = Math.min(...ch, 0), hi = Math.max(...ch, 0), pad = (hi - lo) * 0.06;
+    const X = v => m.l + ((v - (lo - pad)) / (hi - lo + 2 * pad)) * (W - m.l - m.r);
+    const rows = S.rows.map(q => Object.assign({ x: X(q.c) }, q)).sort((a, b) => a.x - b.x), placed = [];
+    rows.forEach(q => { const near = placed.filter(p => Math.abs(p.x - q.x) < d), cands = [0]; near.forEach(p => { const dy = Math.sqrt(d * d - (p.x - q.x) ** 2); cands.push(p.y + dy, p.y - dy); });
+      cands.sort((a, b) => Math.abs(a) - Math.abs(b)); q.y = cands.find(c => near.every(p => (p.x - q.x) ** 2 + (p.y - c) ** 2 >= d * d - 0.01)); placed.push(q); });
+    const half = Math.max(88, ...rows.map(q => Math.abs(q.y))) + r + 4, cy = m.t + half, Ht = cy + half + m.b, ay = cy + half;
+    const rawStep = (hi - lo) / (narrow ? 5 : 8), step = [1, 2, 5, 10, 20].find(s => s >= rawStep) || 20;
+    let g = '';
+    for (let v = Math.ceil((lo - pad) / step) * step; v <= hi + pad; v += step) g += `<line class="grid-h" x1="${X(v)}" x2="${X(v)}" y1="${m.t - 4}" y2="${ay}"/><text x="${X(v)}" y="${ay + 16}" text-anchor="middle" class="${v === 0 ? 'tx' : ''}">${v === 0 ? '0%' : M(v).replace('.00', '') + '%'}</text>`;
+    g += `<line class="zero" x1="${X(0)}" x2="${X(0)}" y1="${m.t - 4}" y2="${ay}"/>`;
+    g += `<line class="med" x1="${X(S.median)}" x2="${X(S.median)}" y1="${m.t - 4}" y2="${ay}"/>`;
+    g += `<text class="acc" x="${X(S.median) - 8}" y="${m.t - 10}" text-anchor="end">median ${M(S.median)}%</text>`;
+    if (S.hero_win !== null) g += `<text x="${X(S.median) + 8}" y="${m.t - 10}">window ${S.hero_win}, hero chart</text>`;
+    const nl = rows.filter(q => q.c < 0).length, nh = rows.length - nl;
+    g += `<text class="tx" x="${m.l}" y="${ay + 40}">← lower in ${nl} of ${rows.length}</text><text class="tx" x="${W - m.r}" y="${ay + 40}" text-anchor="end">higher in ${nh} →</text>`;
+    rows.filter(q => q.w !== S.hero_win).forEach(q => { g += `<circle class="dot" cx="${q.x.toFixed(1)}" cy="${(cy + q.y).toFixed(1)}" r="${r}"><title>window ${q.w}, ${q.v}: ${M(q.c)}% (${q.r.toFixed(1)} to ${q.m.toFixed(1)} Wh/km)</title></circle>`; });
+    rows.filter(q => q.w === S.hero_win).forEach(q => { g += `<circle class="dot hero" cx="${q.x.toFixed(1)}" cy="${(cy + q.y).toFixed(1)}" r="${r + 1.5}"><title>window ${q.w}, ${q.v}: ${M(q.c)}% (${q.r.toFixed(1)} to ${q.m.toFixed(1)} Wh/km)</title></circle>`; });
+    el.innerHTML = `<svg class="swarm" viewBox="0 0 ${W} ${Ht}" width="${W}" height="${Ht}" role="img" aria-label="Change in battery energy for each of ${rows.length} windows; lower in ${nl}; median ${M(S.median)} percent">${g}</svg>`;
+  }
+
+  const HD = dataOf('hero-data'), SD = dataOf('swarm-data');
+  let lastW = 0;
+  const draw = () => { const a = $('hero-chart'), b = $('swarm-chart'); if (!a || !b) return; const w = a.clientWidth + '/' + b.clientWidth; if (w === lastW) return; lastW = w; if (HD) hero(a, HD); if (SD) swarm(b, SD); };
+  const sc = $('hero-scrub'); if (sc) sc.dataset.idle = sc.textContent;
+  draw(); let tm = 0; window.addEventListener('resize', () => { clearTimeout(tm); tm = setTimeout(draw, 120); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { lastW = 0; draw(); });
+})();
