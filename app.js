@@ -11,26 +11,37 @@ const swatch = o => `<svg class="sw" viewBox="0 0 24 8" aria-hidden="true"><line
 document.querySelectorAll('[data-arm]').forEach(e => { e.innerHTML = swatch(ARMS[e.dataset.arm]); });
 const ARM_ORDER = ['acc', 'smc', 'sac42', 'safesac42', 'mpc_const', 'mpc_oracle'];
 const SIZES = [10000, 25000, 50000, 100000, 0];
+/* Desktop = wide viewport and a fine pointer; ?engine=1 forces the engine on for testing on any device. */
+const DESKTOP = /[?&]engine=1(&|$)/.test(location.search) || (matchMedia('(min-width: 900px)').matches && matchMedia('(pointer: fine)').matches);
+const HERO_WIN = (() => { const n = document.getElementById('hero-data'); try { return JSON.parse(n.textContent).win; } catch (e) { return ''; } })();
+function heroLabel(loading) { const l = $('rv-hero-label'); if (l) l.textContent = loading ? `Replaying window ${HERO_WIN} while the engine loads` : `Window ${HERO_WIN} replay`; }
+function applyGate() {
+  $('lmsg').textContent = 'Live engine available on desktop'; $('lbar').parentNode.style.display = 'none'; heroLabel(false);
+  const gate = '<div class="gate" role="note"><h3>Runs on desktop and laptop browsers</h3><p>The live engine downloads about 30 MB and needs a few seconds of computing, so it is switched off on phones and tablets. Everything in Results works here; open ev.sagniknath.in on a computer to run it.</p></div>';
+  document.querySelectorAll('#sec-run .panel, #sec-train .panel').forEach(p => { p.hidden = true; p.insertAdjacentHTML('afterend', gate); });
+  const acts = document.querySelectorAll('.hero .actions a'); if (acts.length === 2) { acts[0].remove(); acts[1].classList.remove('alt'); }
+}
+if (!DESKTOP) applyGate(); else heroLabel(true);
 let REF = null, MLREF = null, WINDOWS = [], PYV = '', readyInfo = null, progressSink = null;
 const fmt = (x, d = 2) => (x === null || x === undefined || Number.isNaN(x)) ? '-' : Number(x).toFixed(d);
 const pct = (a, b) => (100 * (a - b) / b);
 const sgn = x => (x > 0 ? '+' : '') + x.toFixed(2).replace('-', '\u2212') + '%';
 
 /* ---------------- worker plumbing ---------------- */
-const worker = new Worker('worker.js?v=20261114a', { type: 'module' });
+const worker = DESKTOP ? new Worker('worker.js?v=20261114b', { type: 'module' }) : null;   // phones and tablets never create the worker, so Pyodide and the data files are never requested
 let nextId = 1; const pending = new Map(); let readyRes, readyRej; const ready = new Promise((a, b) => { readyRes = a; readyRej = b; });
 function setBar(frac, msg) { $('lbar').style.transform = 'scaleX(' + frac.toFixed(3) + ')'; $('lmsg').textContent = readyInfo ? msg : 'Loading the engine… (first visit downloads ~30 MB)'; if (progressSink) progressSink(frac, msg); }
-worker.onmessage = e => {
+if (worker) worker.onmessage = e => {
   const m = e.data;
   if (m.type === 'progress') setBar(m.frac, m.msg);
-  else if (m.type === 'ready') { readyInfo = m; WINDOWS = m.windows; PYV = m.pyodide; setBar(1, 'Engine ready · ' + m.secs.toFixed(1) + ' s on your device'); $('lbar').parentNode.style.display = 'none'; readyRes(m); initUI(); }
+  else if (m.type === 'ready') { readyInfo = m; WINDOWS = m.windows; PYV = m.pyodide; setBar(1, 'Engine ready · ' + m.secs.toFixed(1) + ' s on your device'); $('lbar').parentNode.style.display = 'none'; readyRes(m); initUI(); heroLabel(false); }
   else if (m.type === 'result') { const p = pending.get(m.id); if (p) { pending.delete(m.id); p.res(m); } }
   else if (m.type === 'error') { const p = pending.get(m.id); if (p) { pending.delete(m.id); p.rej(new Error(m.msg)); } else { $('lmsg').innerHTML = '<span class="err">Could not start the Python runtime: ' + m.msg + '</span>'; readyRej(new Error(m.msg)); } }
 };
-worker.onerror = e => { $('lmsg').innerHTML = '<span class="err">Worker error: ' + (e.message || e) + '</span>'; };
+if (worker) worker.onerror = e => { heroLabel(false); $('lmsg').innerHTML = '<span class="err">Worker error: ' + (e.message || e) + '</span>'; };
 function call(msg) { const id = nextId++; return new Promise((res, rej) => { pending.set(id, { res, rej }); worker.postMessage(Object.assign({ id }, msg)); }); }
-Promise.all([fetch('data/reference.json').then(r => r.json()), fetch('data/ml_reference.json').then(r => r.json())]).then(([a, b]) => { REF = a; MLREF = b; });
-worker.postMessage({ cmd: 'init' });
+if (DESKTOP) Promise.all([fetch('data/reference.json').then(r => r.json()), fetch('data/ml_reference.json').then(r => r.json())]).then(([a, b]) => { REF = a; MLREF = b; });
+if (worker) worker.postMessage({ cmd: 'init' });
 
 /* ---------------- charts ---------------- */
 const chartJobs = {};
@@ -50,8 +61,18 @@ function lineChart(el, t, series, ylabel) {
     return `<path class="ln" d="${d}" style="stroke:${s.c};stroke-width:${s.w || 1.5}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ''}/>`;
   });
   const lg = series.map(s => `<span class="lg">${swatch(s)}${s.n}</span>`).join('');
-  el.innerHTML = `<div class="legend">${lg}</div><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${ylabel}">${g}${paths.join('')}</svg><div class="meta" style="margin-top:4px">${ylabel}</div>`;
+  el.innerHTML = `<div class="legend">${lg}</div><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${ylabel}" data-ml="${m.l}" data-mr="${m.r}" data-w="${W}" data-t="${T}">${g}${paths.join('')}<line class="scrubl" y1="${m.t}" y2="${H - m.b}" x1="0" x2="0" style="display:none"/><rect class="hit" x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H}" fill="transparent" style="touch-action:pan-y"/></svg><div class="meta" style="margin-top:4px">${ylabel}</div>`;
+  const sv = el.querySelector('svg[data-ml]'), hit = sv.querySelector('.hit'), send = t => window.dispatchEvent(new CustomEvent('ev:scrub', { detail: { t, src: 'chart', scope: 'run' } }));
+  const move = e => { const r = hit.getBoundingClientRect(); send(Math.max(0, Math.min(T, (e.clientX - r.left) / r.width * T))); };
+  hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move); hit.addEventListener('pointerleave', () => send(null));
+  if (runScrubT !== null) setScrub(sv, runScrubT);
 }
+let runScrubT = null;
+function setScrub(sv, t) {
+  const ln = sv.querySelector('.scrubl'); if (!ln) return; if (t === null) { ln.style.display = 'none'; return; }
+  const ml = +sv.dataset.ml, mr = +sv.dataset.mr, W = +sv.dataset.w, T = +sv.dataset.t, x = ml + Math.min(1, t / T) * (W - ml - mr); ln.setAttribute('x1', x); ln.setAttribute('x2', x); ln.style.display = '';
+}
+window.addEventListener('ev:scrub', e => { const d = e.detail || {}; if (d.scope !== 'run') return; runScrubT = d.t === undefined ? null : d.t; Object.values(chartJobs).forEach(j => { const sv = j[0].querySelector('svg[data-ml]'); if (sv) setScrub(sv, runScrubT); }); });
 let rzT = 0; window.addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(() => Object.values(chartJobs).forEach(j => { const sv = j[0].querySelector('svg'); if (sv && j[0].offsetParent && Math.abs(j[0].clientWidth - (+sv.getAttribute('width'))) > 8) lineChart(...j); }), 150); });
 
 /* ---------------- run panel ---------------- */
@@ -121,8 +142,17 @@ function render(R, rec, arms, mode, idx, eta, cap, secs) {
   const first = R[arms[0]], t = first.trace.t, S = [Object.assign({ y: first.trace.lead }, LEAD, { n: 'Lead' })], G = [], E = [];
   if (rec) { S.push(Object.assign({ y: rec.trace.v }, REC)); G.push(Object.assign({ y: rec.trace.gap }, REC, { n: 'Recorded follower (gap sensor)' })); }
   arms.forEach(a => { const tr = R[a].trace, o = ARMS[a]; S.push(Object.assign({}, o, { n: o.name, y: tr.v })); G.push(Object.assign({}, o, { n: o.name, y: tr.gap })); E.push(Object.assign({}, o, { n: o.name, y: tr.wh })); });
+  runScrubT = null;
   lineChart($('c1'), t, S, 'speed, m/s'); lineChart($('c2'), t, G, 'gap to lead, m'); lineChart($('c3'), t, E, 'cumulative battery energy, Wh');
   window.__lastRun = { R, rec, arms, mode, idx, eta, cap, secs };
+  showRoad(R, rec, arms, t);
+}
+let rvRun = null;
+function showRoad(R, rec, arms, t) {
+  if (!window.RoadView) return;
+  const a = R.mpc_const ? 'mpc_const' : arms[0], tr = R[a].trace, mine = a === 'mpc_const';
+  if (!rvRun) rvRun = RoadView.create($('rv-run'), { id: 'rv-run', scope: 'run', height: 170, loop: false, speed: 10 });
+  rvRun.setData({ t, lead: R[arms[0]].trace.lead, ego: { name: ARMS[a].name, accent: mine, v: tr.v, gap: tr.gap, wh: tr.wh }, rec: rec ? { v: rec.trace.v, gap: rec.trace.gap, wh: rec.trace.wh || null } : null }, { autoplay: true });
 }
 
 /* ---------------- train panel ---------------- */
@@ -167,6 +197,7 @@ function renderTrain(r, model, mode, n) {
 
 /* ---------------- hidden self-test hook (for the PASS RULE check) ---------------- */
 window.runSelfTest = async function (opts) {
+  if (!DESKTOP) throw new Error('The engine is switched off on this device; add ?engine=1 to the address to force it on.');
   opts = opts || {}; const t00 = performance.now(); await ready; while (!REF || !MLREF) await new Promise(r => setTimeout(r, 100));
   const TOL = { acc: 0.01, smc: 0.01, sac42: 0.1, safesac42: 0.1, mpc_const: 0.2, mpc_oracle: 0.2 }, rows = [], idxs = []; for (let i = 0; i < 160; i += 16) idxs.push(i);
   const useIdx = opts.idxs || idxs; let fullWindowSecs = null;

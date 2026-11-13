@@ -24,13 +24,18 @@
     g += `<path class="ln ln-rec" d="${path(H.t, H.rec_gap, X, Y2)}"/><path class="ln ln-mpc" d="${path(H.t, H.mpc_gap, X, Y2)}"/>`;
     g += `<g id="hx" style="display:none"><line class="grid-h" id="hxl" y1="${y1}" y2="${y2 + hg}" style="stroke:var(--text3)"/></g>`;
     el.innerHTML = `<svg viewBox="0 0 ${W} ${Ht}" width="${W}" height="${Ht}" role="img" aria-label="Speed and gap over time for the median test window: lead car, recorded follower and our MPC car">${g}<rect id="hhit" x="${m.l}" y="0" width="${W - m.l - m.r}" height="${Ht}" fill="transparent" style="touch-action:pan-y"/></svg>`;
-    const sc = $('hero-scrub'), gx = $('hx'), gl = $('hxl'), hit = $('hhit'), f1 = v => v === null ? '-' : v.toFixed(1);
-    const move = e => { const r = hit.getBoundingClientRect(), px = (e.clientX - r.left) / r.width * (W - m.l - m.r), i = Math.max(0, Math.min(H.t.length - 1, Math.round(px / (W - m.l - m.r) * T / 0.5)));
+    const sc = $('hero-scrub'), gx = $('hx'), gl = $('hxl'), hit = $('hhit'), f1 = v => v === null ? '-' : v.toFixed(1), iOf = t => Math.max(0, Math.min(H.t.length - 1, Math.round(t / 0.5)));
+    const show = t => { if (t === null) { gx.style.display = 'none'; if (sc) sc.textContent = sc.dataset.idle; return; } const i = iOf(t);
       gx.style.display = ''; gl.setAttribute('x1', X(H.t[i])); gl.setAttribute('x2', X(H.t[i]));
       if (sc) sc.innerHTML = `t ${H.t[i].toFixed(1)} s &middot; lead ${f1(H.lead[i])} &middot; recorded ${f1(H.rec_v[i])} &middot; ours ${f1(H.mpc_v[i])} m/s &middot; gap ${f1(H.rec_gap[i])} / ${f1(H.mpc_gap[i])} m`; };
+    heroShow = show; if (heroT !== null) show(heroT);
+    const move = e => { const r = hit.getBoundingClientRect(), px = (e.clientX - r.left) / r.width * (W - m.l - m.r), t = H.t[iOf(px / (W - m.l - m.r) * T)];
+      heroT = t; show(t); window.dispatchEvent(new CustomEvent('ev:scrub', { detail: { t, src: 'chart', scope: 'hero' } })); };
     hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move);
-    hit.addEventListener('pointerleave', () => { gx.style.display = 'none'; if (sc) sc.textContent = sc.dataset.idle; });
+    hit.addEventListener('pointerleave', () => { heroT = null; show(null); window.dispatchEvent(new CustomEvent('ev:scrub', { detail: { t: null, src: 'chart', scope: 'hero' } })); });
   }
+  let heroShow = null, heroT = null;
+  window.addEventListener('ev:scrub', e => { const d = e.detail || {}; if (d.scope !== 'hero' || d.src === 'chart') return; heroT = d.t; if (heroShow) heroShow(d.t); });
 
   /* ---------- main chart: one dot per window, change in Wh/km of our MPC vs the recorded commercial-ACC follower ---------- */
   function swarm(el, S) {
