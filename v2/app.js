@@ -14,7 +14,7 @@ const pct = (a, b) => (100 * (a - b) / b);
 const sgn = x => (x > 0 ? '+' : '') + x.toFixed(2) + '%';
 
 /* ---------------- worker plumbing ---------------- */
-const worker = new Worker('worker.js');
+const worker = new Worker('worker.js', { type: 'module' });
 let nextId = 1; const pending = new Map(); let readyRes, readyRej; const ready = new Promise((a, b) => { readyRes = a; readyRej = b; });
 function setBar(frac, msg) { $('lbar').style.width = Math.round(100 * frac) + '%'; $('lmsg').textContent = msg; if (progressSink) progressSink(frac, msg); }
 worker.onmessage = e => {

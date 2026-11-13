@@ -1,8 +1,8 @@
-/* Web Worker: runs the paper's Python (mpc_acc, baselines, safe_filter) in Pyodide. Nothing leaves the visitor's device. */
+/* Module Web Worker (new Worker(url,{type:'module'})): runs the paper's Python (mpc_acc, baselines, safe_filter) in Pyodide. Nothing leaves the visitor's device. */
+import { loadPyodide } from 'https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.mjs';   // static import needs a literal URL; keep in sync with PYODIDE_VERSION below
 const PYODIDE_VERSION = '314.0.7';   // pinned; the feasibility test used the current stable Pyodide (numpy, scipy, cvxpy-base, clarabel, scikit-learn, lightgbm all present). Fallback known to carry the same packages: 0.29.5
 const INDEX_URL = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
-importScripts(INDEX_URL + 'pyodide.js');
-const here = new URL('.', self.location.href).href;   // works from any path, e.g. https://ev.sagniknath.in/v2/
+const here = new URL('.', import.meta.url).href;   // works from any path, e.g. https://ev.sagniknath.in/v2/
 const PY_FILES = ['mpc_acc.py', 'baselines.py', 'safe_filter.py', 'sac_env.py', 'demo_core.py', 'demo_api.py', 'bmw_i3_params_final.csv'];
 const DATA_FILES = ['windows.npz', 'sac42.npz', 'safesac42.npz', 'rl_meta.json'];
 let py = null, api = null, mlReady = false, bmwLoaded = false;
