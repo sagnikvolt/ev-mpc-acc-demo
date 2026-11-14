@@ -393,7 +393,7 @@ h2.sub{font:500 20px/28px var(--sans);letter-spacing:0;margin:40px 0 12px}
 html:has(body.app:not(.gated)){height:100%}
 body.app:not(.gated){height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 body.app:not(.gated) .nav{flex:none}
-body.app:not(.gated) .nav .wrap{max-width:none}
+/* nav: same full-width header on every page (no jump between pages) */
 body.app:not(.gated) .app-ws{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:340px minmax(0,1fr);overflow:hidden}
 body.app:not(.gated) .rail{display:flex;flex-direction:column;min-height:0;margin:0;border:0;border-right:1px solid var(--line);border-radius:0}
 body.app:not(.gated) .rail-body{flex:1 1 auto;min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
@@ -553,3 +553,7 @@ body.gated .app-ws{display:block}
 .ov-rail{top:calc(var(--navh,56px) + 20px)}
 .ov-card{scroll-margin-top:var(--ovtop,72px)}
 @media(max-width:959px){.ov-rail{top:var(--navh,56px)}.ov-card{scroll-margin-top:var(--ovtop,120px)}}
+
+/* Stable header across pages (Opus 2026-11-14): one full-width nav row everywhere, and the scrollbar gutter is always reserved so widths do not change between scrolling pages and the app pages. */
+html{scrollbar-gutter:stable}
+.nav .wrap{max-width:none}
