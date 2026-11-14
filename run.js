@@ -3,8 +3,8 @@
 /* MATLAB check windows and traces (optional: a missing file just hides the feature) */
 let MW = null, MT = null;
 const getJSON = u => DESKTOP ? fetch(u).then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null);
-getJSON('/data/matlab_windows.json?v=20261114f').then(d => { MW = d && d.windows && d.windows.length === 10 ? d : null; if (!MW) $('mmodelab').hidden = true; else fillMWin(); });
-getJSON('/data/matlab_traces.json?v=20261114f').then(d => { MT = d; });
+getJSON('/data/matlab_windows.json?v=20261114g').then(d => { MW = d && d.windows && d.windows.length === 10 ? d : null; if (!MW) $('mmodelab').hidden = true; else fillMWin(); });
+getJSON('/data/matlab_traces.json?v=20261114g').then(d => { MT = d; });
 function mtrace(n) {
   if (!MT) return null; const z = String(n).padStart(2, '0'), W = MT.windows || MT, d = Array.isArray(W) ? W[n - 1] : (W['w' + n] || W['w' + z] || W[n] || W[z]);
   return d && Array.isArray(d.t) && d.v_acc && d.v_mpc ? d : null;
@@ -185,7 +185,7 @@ function render(R, rec, arms, mode, idx, eta, cap, secs) {
 }
 /* ---- MATLAB tab: the MATLAB-made PNG next to the website's own small speed / gap / energy charts, plus the Wh/km comparison */
 function buildMLTab(R, arms, mwin, ml) {
-  const n = mwin.n, Z = String(n).padStart(2, '0'), A = arms.filter(a => a === 'acc' || a === 'mpc_const'), pn = $('mlpanel'), src = `/figures/matlab/traces_w${Z}.png?v=20261114f`;
+  const n = mwin.n, Z = String(n).padStart(2, '0'), A = arms.filter(a => a === 'acc' || a === 'mpc_const'), pn = $('mlpanel'), src = `/figures/matlab/traces_w${Z}.png?v=20261114g`;
   let rows = '', cap = [];
   A.forEach(a => { const o = R[a], m = ml[a]; rows += `<tr><td>${swatch(ARMS[a])} ${SHORT[a]}</td><td>${fmt(m.whkm_adj, 3)}</td><td>${fmt(o.whkm_adj, 3)}</td><td>${dp3(pct(o.whkm_adj, m.whkm_adj))}</td></tr>`; cap.push(`${SHORT[a]} ${fmt(m.whkm_adj, 3)} (MATLAB) and ${fmt(o.whkm_adj, 3)} (website) Wh/km`); });
   pn.innerHTML = `<div class="mlp"><figure class="mlfig"><button type="button" class="gal-b ml-b" id="mlimg-b" aria-label="Enlarge the MATLAB figure for window ${n}"><img id="mlimg" src="${src}" alt="MATLAB R2024b figure for window ${n}: lead and follower speed, gap and cumulative energy for the ACC and the MPC"></button><figcaption>Made by MATLAB R2024b (make_site_traces.m, exportgraphics) from its own simulation of window ${n}. Click to enlarge.</figcaption></figure>` +

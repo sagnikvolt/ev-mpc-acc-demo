@@ -32,7 +32,7 @@ const pct = (a, b) => (100 * (a - b) / b);
 const sgn = x => (x > 0 ? '+' : '') + x.toFixed(2).replace('-', '\u2212') + '%';
 
 /* ---------------- worker plumbing ---------------- */
-const worker = ENGINE && DESKTOP ? new Worker('/worker.js?v=20261114f', { type: 'module' }) : null;   // phones and tablets never create the worker, so Pyodide and the data files are never requested
+const worker = ENGINE && DESKTOP ? new Worker('/worker.js?v=20261114g', { type: 'module' }) : null;   // phones and tablets never create the worker, so Pyodide and the data files are never requested
 let nextId = 1; const pending = new Map(); let readyRes, readyRej; const ready = new Promise((a, b) => { readyRes = a; readyRej = b; });
 function setBar(frac, msg) { $('lbar').style.transform = 'scaleX(' + frac.toFixed(3) + ')'; $('lmsg').textContent = readyInfo ? msg : 'Loading the engine… (first visit downloads ~30 MB)'; if (!readyInfo) setChip('loading', 'Loading engine ' + Math.round(frac * 100) + '%'); if (progressSink) progressSink(frac, msg); }
 if (worker) worker.onmessage = e => {
