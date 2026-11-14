@@ -5,7 +5,7 @@
 <meta name="color-scheme" content="dark light">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261114b">
+<link rel="stylesheet" href="styles.css?v=20261114c">
 </head><body>
 <header class="nav"><div class="wrap">
 <a class="brand" href="#top">EV battery-aware ACC<span>open research demo</span></a>
@@ -35,33 +35,58 @@
 <section class="sec" id="sec-run">
 <h2>Run it yourself</h2>
 <p class="intro">Pick one of the 160 held-out test windows (120 s of real recorded driving), or upload your own lead-vehicle speed trace, choose the controllers and the battery assumptions, and press run. The simulation runs in your browser; the stored result of the paper's own run is shown beside it for the test windows.</p>
-<div class="panel">
-<div class="field"><span class="fl">Input</span><div class="seg" role="radiogroup" aria-label="Input"><label><input type="radio" name="mode" value="window" checked><span>Test window</span></label><label><input type="radio" name="mode" value="upload"><span>Upload CSV</span></label></div></div>
-<div id="winbox"><div class="row"><label class="field"><span class="fl">Recorded follower type</span><select id="filt"><option value="all">all</option><option value="acc">commercial ACC</option><option value="human">human driver</option><option value="mixed">mixed</option></select></label>
-<label class="field" style="flex:1 1 320px;min-width:0"><span class="fl">Window</span><select id="win" style="width:100%"></select></label></div><div class="lim mut" id="wininfo" style="margin:-4px 0 16px"></div></div>
-<div id="upbox" style="display:none"><p class="lim mut" style="margin:0 0 12px">One speed per line, or two columns <code>time,speed</code>. 30 to 180 s of driving, lead speed 0 to 46 m/s (166 km/h). The file is read in your browser only.</p>
+<div class="wb">
+<aside class="rail" aria-label="Run settings">
+<div class="rail-head"><span class="rail-t">Run settings</span><span class="chip" id="chip" data-s="idle" role="status" aria-live="polite"><i aria-hidden="true"></i><span id="chiptxt">Idle</span></span></div>
+<div class="rg"><div class="rgl" id="g-input">Input</div>
+<div class="seg" role="radiogroup" aria-label="Input"><label><input type="radio" name="mode" value="window" checked><span>Test window</span></label><label><input type="radio" name="mode" value="upload"><span>Upload CSV</span></label></div>
+<div id="winbox"><label class="field"><span class="fl">Recorded follower type</span><select id="filt"><option value="all">all</option><option value="acc">commercial ACC</option><option value="human">human driver</option><option value="mixed">mixed</option></select></label>
+<label class="field"><span class="fl">Window</span><select id="win"></select></label><div class="lim mut" id="wininfo"></div></div>
+<div id="upbox" style="display:none"><p class="lim mut">One speed per line, or two columns <code>time,speed</code>. 30 to 180 s of driving, lead speed 0 to 46 m/s (166 km/h). The file is read in your browser only.</p>
 <textarea id="trace" placeholder="e.g. 12.1&#10;12.3&#10;12.8 ..." aria-label="Lead-speed trace"></textarea>
-<div class="row" style="margin-top:12px"><input type="file" id="file" accept=".csv,.txt"> <button class="alt" id="ex" type="button">Load a synthetic example (stop-and-go, 150 s)</button></div>
-<div class="row"><label class="field"><span class="fl">Unit</span><select id="unit"><option value="mps">m/s</option><option value="kmh">km/h</option></select></label>
-<label class="field"><span class="fl">Sampling</span><select id="hz"><option value="10">10 Hz</option><option value="5">5 Hz</option><option value="2">2 Hz</option><option value="1" selected>1 Hz</option></select></label><span class="lim mut">Ignored if a time column is given</span></div></div>
-<fieldset><legend>Controllers to run</legend><div class="arms">
-<label class="arm"><input type="checkbox" id="arm_acc" checked><span data-arm="acc"></span>Tuned ACC</label>
-<label class="arm"><input type="checkbox" id="arm_smc" checked><span data-arm="smc"></span>SMC</label>
-<label class="arm"><input type="checkbox" id="arm_sac42" checked><span data-arm="sac42"></span>Plain SAC (seed 42)</label>
-<label class="arm"><input type="checkbox" id="arm_safesac42" checked><span data-arm="safesac42"></span>Safe SAC (seed 42)</label>
-<label class="arm"><input type="checkbox" id="arm_mpc_const" checked><span data-arm="mpc_const"></span>MPC const-speed (our design car)</label>
-<label class="arm"><input type="checkbox" id="arm_mpc_oracle" checked><span data-arm="mpc_oracle"></span>MPC oracle (ceiling, not deployable)</label></div></fieldset>
-<div class="sliders">
-<label class="field"><span class="fl">Regen efficiency</span><span class="rng"><input type="range" id="eta" min="0.3" max="1" step="0.05" value="0.65"><span class="val" id="etav">0.65</span></span></label>
-<label class="field"><span class="fl">Regen cap (kW)</span><span class="rng"><input type="range" id="cap" min="10" max="100" step="5" value="35"><span class="val"><span id="capv">35</span> kW</span></span></label></div>
-<div class="lim mut">Defaults 0.65 and 35 kW are the paper's setting; the stored paper results are shown only at these values.</div>
-<div class="runrow"><button id="run" disabled>Run on my device</button> <span id="status"></span></div>
+<div class="upr"><input type="file" id="file" accept=".csv,.txt" aria-label="Choose a CSV or text file"><button class="alt sm" id="ex" type="button">Load a synthetic example (stop-and-go, 150 s)</button></div>
+<div class="two"><label class="field"><span class="fl">Unit</span><select id="unit"><option value="mps">m/s</option><option value="kmh">km/h</option></select></label>
+<label class="field"><span class="fl">Sampling</span><select id="hz"><option value="10">10 Hz</option><option value="5">5 Hz</option><option value="2">2 Hz</option><option value="1" selected>1 Hz</option></select></label></div><div class="lim mut">Sampling is ignored if a time column is given.</div></div>
 </div>
+<fieldset class="rg"><legend class="rgl">Controllers</legend><div class="arms">
+<label class="arm"><input type="checkbox" id="arm_acc" checked><span data-arm="acc"></span><span class="an">Tuned ACC</span></label>
+<label class="arm"><input type="checkbox" id="arm_smc" checked><span data-arm="smc"></span><span class="an">SMC</span></label>
+<label class="arm"><input type="checkbox" id="arm_sac42" checked><span data-arm="sac42"></span><span class="an">Plain SAC (seed 42)</span></label>
+<label class="arm"><input type="checkbox" id="arm_safesac42" checked><span data-arm="safesac42"></span><span class="an">Safe SAC (seed 42)</span></label>
+<label class="arm"><input type="checkbox" id="arm_mpc_const" checked><span data-arm="mpc_const"></span><span class="an">MPC const-speed (our design car)</span></label>
+<label class="arm"><input type="checkbox" id="arm_mpc_oracle" checked><span data-arm="mpc_oracle"></span><span class="an">MPC oracle (ceiling, not deployable)</span></label>
+</div></fieldset>
+<div class="rg"><div class="rgl">Battery assumptions</div>
+<label class="field"><span class="fl">Regen efficiency</span><span class="rng"><input type="range" id="eta" min="0.3" max="1" step="0.05" value="0.65"><span class="val" id="etav">0.65</span></span></label>
+<label class="field"><span class="fl">Regen cap</span><span class="rng"><input type="range" id="cap" min="10" max="100" step="5" value="35"><span class="val"><span id="capv">35</span> kW</span></span></label>
+<div class="lim mut">The stored paper results exist only at 0.65 and 35 kW. <button type="button" class="linkbtn" id="reset">Use the paper setting</button></div></div>
+<ol class="queue" id="queue" aria-label="Run queue" hidden></ol>
+<div id="status" class="lim mut"></div>
+<button id="run" class="runbtn" disabled>Run on my device</button>
+</aside>
+<div class="stage">
+<div class="card rvcard"><div id="rv-run"></div><div id="rv-empty" class="rv-empty" hidden>Upload a lead-speed trace and press run. The road view shows the computed lanes.</div><div class="lim mut rvcap" id="rv-cap"></div></div>
+<div class="tiles" id="tiles">
+<div class="tile ours"><div class="tl">Our car</div><div class="tv" id="t1">-</div><div class="ts" id="t1s">Wh/km, MPC const-speed</div></div>
+<div class="tile"><div class="tl">vs normal car</div><div class="tv" id="t2">-</div><div class="ts" id="t2s">recorded follower, same battery model</div></div>
+<div class="tile"><div class="tl">vs tuned ACC</div><div class="tv" id="t3">-</div><div class="ts">Wh/km, same window</div></div>
+<div class="tile"><div class="tl">Computed on your device</div><div class="tv" id="t4">-</div><div class="ts">seconds, nothing sent to a server</div></div>
+</div>
+<div class="card tabcard">
+<div class="tabbar"><div class="tabs" role="tablist" aria-label="Result views">
+<button type="button" role="tab" id="tab-speed" aria-controls="pn-speed" aria-selected="false" tabindex="-1">Speed</button>
+<button type="button" role="tab" id="tab-gap" aria-controls="pn-gap" aria-selected="false" tabindex="-1">Gap</button>
+<button type="button" role="tab" id="tab-energy" aria-controls="pn-energy" aria-selected="false" tabindex="-1">Energy</button>
+<button type="button" role="tab" id="tab-table" aria-controls="pn-table" aria-selected="true" tabindex="0">Table</button></div>
+<button type="button" class="alt sm" id="export" disabled>Export CSV</button></div>
+<div id="empty" class="empty">Press run to compute the controllers. Results appear here: the table first, then speed, gap and energy charts.</div>
 <div id="out" class="out" style="display:none">
-<h3>Results</h3><div class="card" style="padding:8px 16px"><div id="tbl" class="tw"></div></div><div class="lim mut" id="tnote" style="margin-top:12px"></div>
-<h3>Road view</h3><div id="rv-run"></div><div class="lim mut" style="margin-top:8px">Schematic replay of the computed window: positions come from the simulated speeds and gaps, and cars are drawn at 4.5 m. The cursor in the charts below follows the replay.</div>
-<h3>Speed</h3><div id="c1" class="chartbox chart"></div><h3>Gap to the lead car</h3><div id="c2" class="chartbox chart"></div><h3>Cumulative battery energy</h3><div id="c3" class="chartbox chart"></div>
-<div class="lim mut" style="margin-top:16px">The plots are sampled every 0.5 s (the controller step); the energy curve is rebuilt from that sampling, so its end value matches the table to within rounding of the 0.5 s resampling. The table is the exact simulator output.</div>
+<div role="tabpanel" id="pn-speed" aria-labelledby="tab-speed" tabindex="0" hidden><div id="c1" class="chartbox chart"></div></div>
+<div role="tabpanel" id="pn-gap" aria-labelledby="tab-gap" tabindex="0" hidden><div id="c2" class="chartbox chart"></div></div>
+<div role="tabpanel" id="pn-energy" aria-labelledby="tab-energy" tabindex="0" hidden><div id="c3" class="chartbox chart"></div><div class="lim mut" style="margin-top:12px">The energy curve is rebuilt from the 0.5 s samples, so its end value matches the table to within rounding of that resampling. The table is the exact simulator output.</div></div>
+<div role="tabpanel" id="pn-table" aria-labelledby="tab-table" tabindex="0"><div id="tbl" class="tw"></div><div class="lim mut" id="tnote" style="margin-top:12px"></div></div>
+</div></div>
+</div>
 </div>
 </section>
 
@@ -110,7 +135,7 @@
 <p>Design pass guided by unslop by Damir Sokolovsky (CC BY 4.0)</p>
 </footer>
 </div>
-<script src="viz.js?v=20261114b"></script>
-<script src="road.js?v=20261114b"></script>
-<script src="app.js?v=20261114b"></script>
+<script src="viz.js?v=20261114c"></script>
+<script src="road.js?v=20261114c"></script>
+<script src="app.js?v=20261114c"></script>
 </body></html>

@@ -22,7 +22,7 @@
 
   class Road {
     constructor(host, o) {
-      o = o || {}; this.id = o.id || 'rv' + (++uid); this.scope = o.scope || this.id; this.h = o.height || 120; this.loop = !!o.loop; this.mult = o.speed || 10;
+      o = o || {}; this.id = o.id || 'rv' + (++uid); this.scope = o.scope || this.id; this.h = o.height || 120; this.loop = !!o.loop; this.multi = !!o.multi; this.mult = o.speed || 10;
       this.t = 0; this.playing = false; this.data = null; this.vis = true; this.W = 0; this.dpr = 1; this.raf = 0; this.last = 0; this.hold = 0; this.lastIdx = -1; this.hover = null;
       this.st = { n: 0, sum: 0, max: 0 }; this.col = colors();
       host.classList.add('rv');
@@ -45,6 +45,7 @@
     recolor() { this.col = colors(); this.draw(); }
     /* d = { t, lead, ego: {name, accent, v, gap, wh|null}, rec: {v, gap, wh|null} | null } */
     setData(d, o) {
+      if (this.multi) return this.setDataMulti(d, o);
       o = o || {}; this.pause();
       const n = Math.min(d.t.length, d.lead.length, d.ego.v.length, d.ego.gap.length), dt = d.t[1] - d.t[0], lead = d.lead.slice(0, n), L = [d.ego.gap[0]];
       for (let i = 1; i < n; i++) { const a = fin(lead[i - 1]) ? lead[i - 1] : 0, b = fin(lead[i]) ? lead[i] : a; L.push(L[i - 1] + 0.5 * (a + b) * dt); }
@@ -66,10 +67,76 @@
       this.layout(); this.ui();
       if (o.autoplay && !reduced()) this.play();
     }
+
+    /* multi-lane view: one lane per controller, same lead trajectory in every lane, recorded follower as an outline ghost in every lane.
+       d = { t, lead, lanes: [{id, name, short, accent, v, gap, wh|null}], rec: {v, gap, wh|null} | null }; with no lanes the recorded data alone is shown. */
+    setDataMulti(d, o) {
+      o = o || {}; this.pause();
+      const lanes = d.lanes || [], rec0 = d.rec && d.rec.v && d.rec.gap ? d.rec : null;
+      let n = Math.min(d.t.length, d.lead.length); lanes.forEach(l => { n = Math.min(n, l.v.length, l.gap.length); }); if (rec0) n = Math.min(n, rec0.v.length, rec0.gap.length);
+      const dt = d.t[1] - d.t[0], lead = d.lead.slice(0, n), g0 = lanes.length ? lanes[0].gap[0] : (rec0 ? rec0.gap[0] : 30), L = [fin(g0) ? g0 : 30];
+      for (let i = 1; i < n; i++) { const a = fin(lead[i - 1]) ? lead[i - 1] : 0, b = fin(lead[i]) ? lead[i] : a; L.push(L[i - 1] + 0.5 * (a + b) * dt); }
+      let maxGap = 0;
+      const ls = lanes.map(l => { const gap = l.gap.slice(0, n); gap.forEach(g => { if (fin(g)) maxGap = Math.max(maxGap, g); }); return { id: l.id, name: l.name, short: l.short || l.name, accent: !!l.accent, v: l.v.slice(0, n), gap, pos: L.map((p, i) => p - (fin(gap[i]) ? gap[i] : (i ? L[i - 1] - gap[i - 1] : 0))), wh: l.wh ? l.wh.slice(0, n) : null }; });
+      let rec = null;
+      if (rec0) { const pos = []; for (let i = 0; i < n; i++) { const g = rec0.gap[i]; if (fin(g)) maxGap = Math.max(maxGap, g); pos.push(fin(g) ? L[i] - g : (i ? pos[i - 1] + (fin(rec0.v[i]) ? rec0.v[i] : 0) * dt : L[0] - 30)); } rec = { v: rec0.v.slice(0, n), gap: rec0.gap.slice(0, n), pos, wh: rec0.wh ? rec0.wh.slice(0, n) : null }; }
+      const nl = Math.max(1, ls.length);
+      this.data = { multi: true, n, dt, T: (n - 1) * dt, L, lanes: ls, rec, lead, maxGap: maxGap + 2, H: 24 + nl * 56 + 26 };
+      this.t = 0; this.lastIdx = -1; this.hold = 0; this.sl.max = this.data.T.toFixed(1); this.sl.value = 0;
+      const anyOurs = ls.some(l => l.accent), anyOther = ls.some(l => !l.accent);
+      this.lg.innerHTML = `<span class="lg"><span class="rv-sw is-lead"></span>Lead car</span>` + (rec ? `<span class="lg"><span class="rv-sw is-rec"></span>Recorded follower (outline)</span>` : '') +
+        (anyOurs ? `<span class="lg"><span class="rv-sw is-ours"></span>Our car (MPC const-speed)</span>` : '') + (anyOther ? `<span class="lg"><span class="rv-sw is-other"></span>Other controllers</span>` : '');
+      this.layout(); this.ui();
+      if (o.autoplay && !reduced()) this.play();
+    }
+    drawMulti() {
+      const D = this.data, c = this.ctx, W = this.W, C = this.col, ppm = this.ppm, f = this.t / D.dt, gl = this.gl, gr = this.gr, RW = W - gl - gr, xl = this.xl, HEAD = 24, LH = 56;
+      c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0); c.clearRect(0, 0, W, D.H);
+      const pL = lerp(D.L, f), X = m => xl + (m - pL) * ppm, len = CAR * ppm, carH = clamp(len * 0.4, 10, 17), wr = Math.max(2.5, carH * 0.19), bodyH = carH * 0.72;
+      const num = (v, d) => (v === null ? '-' : v.toFixed(d)), seg = (x, y, parts) => { for (const [s, col] of parts) { c.fillStyle = col; c.fillText(s, x, y); x += c.measureText(s).width; } return x; };
+      c.textBaseline = 'alphabetic'; c.textAlign = 'left'; c.font = `400 12px ${C.mono}`;
+      const lv = lerp(D.lead, f), tt = [['lead ', C.text3], [lv === null ? '-' : String(Math.round(lv * 3.6)), C.text], [' km/h', C.text3], ['   t ', C.text3], [this.t.toFixed(1), C.text], [' s', C.text3]];
+      let tw = 0; tt.forEach(p => { tw += c.measureText(p[0]).width; }); seg(W - 12 - tw, 18, tt);
+      const lanes = D.lanes.length ? D.lanes : [null], rp = D.rec ? lerp(D.rec.pos, f) : null;
+      const car = (front, kind, col, roadTop) => {
+        const x2 = X(front), x1 = x2 - len, bb = roadTop - wr * 1.1, bt = bb - bodyH; if (x2 < gl - 4 || x1 > W - gr + 4) return;
+        c.lineWidth = 1.5; c.strokeStyle = col; c.fillStyle = col;
+        c.beginPath(); if (c.roundRect) c.roundRect(x1, bt, len, bodyH, 3); else c.rect(x1, bt, len, bodyH); if (kind === 'rec') c.stroke(); else c.fill();
+        for (const u of [0.22, 0.78]) { c.beginPath(); c.arc(x1 + len * u, roadTop - wr, wr, 0, 6.2832); c.fillStyle = C.card; c.fill(); c.stroke(); }
+      };
+      lanes.forEach((ln, i) => {
+        const y0 = HEAD + i * LH, roadTop = y0 + LH - 20, roadH = 12;
+        c.save(); c.beginPath(); c.rect(gl, y0, RW, LH); c.clip();
+        c.fillStyle = C.raised; c.fillRect(gl, roadTop, RW, roadH); c.fillStyle = C.line2; c.fillRect(gl, roadTop, RW, 1); c.fillRect(gl, roadTop + roadH - 1, RW, 1);
+        c.globalAlpha = 0.55; c.fillStyle = C.text3; const w0 = pL - (xl - gl) / ppm - 30, w1 = pL + (W - gr - xl) / ppm + 30;
+        for (let k = Math.floor(w0 / 24); k * 24 < w1; k++) { const a = X(k * 24), b = X(k * 24 + 10); c.fillRect(a, roadTop + roadH / 2 - 0.75, b - a, 1.5); }
+        c.globalAlpha = 1;
+        car(pL + CAR, 'lead', C.text3, roadTop);
+        if (rp !== null) car(rp, 'rec', C.text, roadTop);
+        let pE = null;
+        if (ln) { pE = lerp(ln.pos, f); car(pE, 'ours', ln.accent ? C.accent : C.text2, roadTop); }
+        if (pE !== null && lv !== null) {
+          c.strokeStyle = C.text3; c.lineWidth = 1; c.beginPath(); const gy = roadTop - wr * 1.1 - bodyH - 6, a = Math.round(X(pE)) + 0.5, b = Math.round(X(pL)) + 0.5; c.moveTo(a, gy - 3); c.lineTo(a, gy + 3); c.moveTo(a, gy); c.lineTo(b, gy); c.moveTo(b, gy - 3); c.lineTo(b, gy + 3); c.stroke();
+        }
+        c.restore();
+        c.font = `${ln && ln.accent ? 500 : 400} 12px ${C.mono}`; c.fillStyle = ln && ln.accent ? C.accent : C.text2; c.textAlign = 'left';
+        let lab = ln ? ln.short : 'Recorded data'; while (lab.length > 3 && c.measureText(lab).width > gl - 20) lab = lab.slice(0, -2) + '…'; const cy = roadTop - wr * 1.1 - bodyH / 2; c.fillText(lab, 12, cy + 4);
+        c.font = `400 12px ${C.mono}`;
+        const sv = ln ? lerp(ln.v, f) : (D.rec ? lerp(D.rec.v, f) : null), sg = ln ? lerp(ln.gap, f) : (D.rec ? lerp(D.rec.gap, f) : null), swh = ln ? (ln.wh ? lerp(ln.wh, f) : null) : (D.rec && D.rec.wh ? lerp(D.rec.wh, f) : null), x = W - gr + 12;
+        const l1 = [[sv === null ? '-' : String(Math.round(sv * 3.6)), C.text], [' km/h', C.text3]];
+        if (gr > 100) { l1.push(['  ', C.text3], [num(sg, 1), C.text], [' m', C.text3]); seg(x, cy - 2, l1); if (swh !== null) seg(x, cy + 12, [[num(swh, 1), ln && ln.accent ? C.accent : C.text], [' Wh', C.text3]]); }
+        else { seg(x, cy - 2, l1); seg(x, cy + 12, [[num(sg, 1), C.text], [' m gap', C.text3]]); }
+      });
+      const ry = HEAD + lanes.length * LH + 4; c.fillStyle = C.text3; c.font = `400 10px ${C.mono}`; c.textAlign = 'left'; c.fillText('behind lead', 12, ry + 14); c.textAlign = 'center';
+      const stepM = [10, 20, 50].find(s => s * ppm >= 40) || 100;
+      for (let m = 0; xl - m * ppm >= gl + 4; m += stepM) { const x = Math.round(xl - m * ppm); c.fillRect(x, ry, 1, 4); c.fillText(m + ' m', x, ry + 14); }
+    }
     layout() {
       const cv = this.cv, W = Math.floor(cv.parentNode.clientWidth); if (!W) return;
+      const D = this.data; if (D && D.multi) { this.h = D.H; cv.parentNode.style.height = D.H + 'px'; }
       this.W = W; this.dpr = window.devicePixelRatio || 1; cv.width = Math.round(W * this.dpr); cv.height = Math.round(this.h * this.dpr);
-      const D = this.data; if (D) { const tot = (D.ahead + D.behind) * 1.04; this.ppm = clamp((W - 24) / tot, 4, 16); this.x0 = 12 + D.behind * this.ppm; }
+      if (D && D.multi) { const nar = W < 600; this.gl = nar ? 76 : 112; this.gr = nar ? 84 : 156; this.ppm = clamp((W - this.gl - this.gr - 36) / (D.maxGap + 2 * CAR), 3, 16); this.xl = W - this.gr - 14 - CAR * this.ppm; }
+      else if (D) { const tot = (D.ahead + D.behind) * 1.04; this.ppm = clamp((W - 24) / tot, 4, 16); this.x0 = 12 + D.behind * this.ppm; }
       this.ui(); this.draw();
     }
     ui() {
@@ -104,6 +171,7 @@
     }
     draw() {
       const D = this.data; if (!D || !this.W || !this.vis) return;
+      if (D.multi) return this.drawMulti();
       const c = this.ctx, W = this.W, H = this.h, C = this.col, ppm = this.ppm, f = this.t / D.dt;
       c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0); c.clearRect(0, 0, W, H);
       const pE = lerp(D.ego.pos, f), pL = lerp(D.L, f), X = m => this.x0 + (m - pE) * ppm, roadTop = H - 34, roadH = 16, w0 = pE - this.x0 / ppm - 30, w1 = pE + (W - this.x0) / ppm + 30;
