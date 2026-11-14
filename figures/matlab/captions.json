@@ -1,0 +1,21 @@
+{
+  "_note": "Captions checked against the real images on 2026-11-14 (Sonnet-M). build_site.py skips any image whose file is missing and ignores keys starting with an underscore.",
+  "matlab_editor_run.png": {
+    "title": "verify_main.m in the MATLAB R2024b Editor, run to the end",
+    "caption": "The MATLAB desktop with verify_main.m open in the Editor and the Command Window showing the result table (per-window Wh/km, minimum gap, jerk, final speed, solver failures) followed by VERIFY DONE. MATLAB R2024b (24.2) Update 5, Roni's laptop, 2026-11-14; eta 0.65, battery power cap 35 kW, 10 test windows.",
+    "alt": "MATLAB R2024b desktop: verify_main.m in the Editor, result table and VERIFY DONE in the Command Window",
+    "date": "2026-11-14"
+  },
+  "matlab_bars.png": {
+    "title": "Wh/km per window: MATLAB, website, Python",
+    "caption": "Figure made by MATLAB (make_site_figs.m, exportgraphics): energy-adjusted Wh/km for each of the 10 windows, MATLAB against the website and the stored Python result, for ACC (top) and MPC with constant-speed preview (bottom). Largest website-vs-MATLAB difference: ACC 0.000%, MPC 0.002%. MATLAB R2024b (24.2) Update 5, Roni's laptop, 2026-11-14; eta 0.65, battery power cap 35 kW, 10 test windows.",
+    "alt": "Grouped bars of Wh per km for 10 windows from MATLAB, website and Python for ACC and MPC; the three bars match in every window",
+    "date": "2026-11-14"
+  },
+  "matlab_traces.png": {
+    "title": "Window 1: speed, gap and cumulative energy from MATLAB",
+    "caption": "Figure made by MATLAB from its own simulation of window 1: lead-vehicle and follower speed, gap to the lead car, and cumulative battery energy for ACC and for MPC with constant-speed preview. Energy-adjusted result 141.91 Wh/km (ACC) and 143.21 Wh/km (MPC), identical to matlab_results.csv. MATLAB R2024b (24.2) Update 5, Roni's laptop, 2026-11-14; eta 0.65, battery power cap 35 kW, 10 test windows.",
+    "alt": "Three stacked MATLAB line charts over about 105 seconds for window 1: speed, gap and cumulative energy for ACC and MPC",
+    "date": "2026-11-14"
+  }
+}

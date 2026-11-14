@@ -261,3 +261,35 @@ button.sm{height:32px;padding:0 12px;font-size:13px}
 .rail{scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
 @media(min-width:1100px){.rail{max-height:calc(100vh - 80px)}}
 .queue{margin:8px 0 4px}#status{margin:4px 0 0}.runbtn{margin:8px 0 0;bottom:-4px}
+
+/* Train it v3 + Compare with MATLAB */
+.queue .qk{font-variant-numeric:tabular-nums;text-align:center;color:inherit}
+#trainwb .rail .lim{margin:0 0 8px}#trainwb .rail .check{margin:0 0 6px}
+#trainwb .rail .rg:last-of-type{padding-bottom:4px}
+#tres td:first-child{min-width:200px}#tres td:not(:first-child){white-space:nowrap}
+#truns td{white-space:nowrap}
+#tpn-imp .empty{padding:24px 8px}
+.mx-tiles{margin:0 0 24px}.tile.verdict .tv{color:var(--accent)}
+.mx-tw table{min-width:900px}.mx-tw th{text-align:right}.mx-tw th:first-child{text-align:left}
+.mx-tw th.g{text-align:center;border-bottom:1px solid var(--line2);color:var(--text2)}
+.mx-tw td.sep,.mx-tw th.sep{border-left:1px solid var(--line)}
+.mx-tw td.ok{color:var(--text)}
+.mx-sub{font:500 15px/20px var(--sans);margin:32px 0 8px}
+.gal{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-top:8px}
+.gal figure{margin:0;min-width:0}
+.gal-b{display:block;width:100%;height:auto;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden;cursor:zoom-in;transition:border-color 150ms var(--ease)}
+.gal-b:hover:not(:disabled){background:var(--card);border-color:var(--text3)}
+.gal-b img{display:block;width:100%;height:auto}
+.gal figcaption{font-size:13px;line-height:20px;color:var(--text2);margin-top:8px}.gal figcaption strong{color:var(--text);display:block}
+.gal figcaption .meta{display:block;margin-top:2px}
+.lb{width:min(1200px,94vw);max-height:94vh;padding:16px;border:1px solid var(--line2);border-radius:16px;background:var(--card);color:var(--text);overflow:auto}
+.lb::backdrop{background:rgba(0,0,0,.72)}
+.lb-bar{display:flex;align-items:center;gap:8px;margin-bottom:12px}.lb-n{margin-right:auto}
+.lb img{display:block;max-width:100%;max-height:70vh;margin:0 auto;border-radius:8px;background:#fff}
+.lb-cap{margin:12px 0 0;font-size:13px;line-height:20px;color:var(--text2);max-width:60rem}
+.mx-links{margin:12px 0 0}
+#timp .imp{grid-template-columns:minmax(120px,190px) minmax(0,1fr);margin:12px 0}
+#timp .br{display:grid;grid-template-columns:minmax(0,1fr) 56px;gap:8px;align-items:center}
+#timp .br+.br{margin-top:2px}
+#timp .bt{min-width:0}#timp .br .v{margin:0;text-align:right}
+@media(max-width:640px){#timp .imp{grid-template-columns:minmax(0,1fr)}}
