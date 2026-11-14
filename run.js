@@ -3,8 +3,8 @@
 /* MATLAB check windows and traces (optional: a missing file just hides the feature) */
 let MW = null, MT = null;
 const getJSON = u => DESKTOP ? fetch(u).then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null);
-getJSON('/data/matlab_windows.json?v=20261114j').then(d => { MW = d && d.windows && d.windows.length === 10 ? d : null; if (!MW) $('mmodelab').hidden = true; else fillMWin(); });
-getJSON('/data/matlab_traces.json?v=20261114j').then(d => { MT = d; });
+getJSON('/data/matlab_windows.json?v=20261114k').then(d => { MW = d && d.windows && d.windows.length === 10 ? d : null; if (!MW) $('mmodelab').hidden = true; else fillMWin(); });
+getJSON('/data/matlab_traces.json?v=20261114k').then(d => { MT = d; });
 function mtrace(n) {
   if (!MT) return null; const z = String(n).padStart(2, '0'), W = MT.windows || MT, d = Array.isArray(W) ? W[n - 1] : (W['w' + n] || W['w' + z] || W[n] || W[z]);
   return d && Array.isArray(d.t) && d.v_acc && d.v_mpc ? d : null;
@@ -93,28 +93,43 @@ async function runSim() {
   const st = $('status'); st.textContent = ''; $('out').style.display = 'none';
   const qd = $('qd'), qsum = $('qsum'), failMsg = h => { st.innerHTML = h; qsum.textContent = 'Run did not start'; qd.hidden = false; qd.open = true; setChip('error', 'Error'); };
   if (!arms.length) { failMsg('<span class="err">Pick at least one controller.</span>'); return; }
-  let up = null, idx = null;
+  let up = null, idx = null, chk = null;
   try {
-    if (mode === 'upload') { up = parseTrace(); await call({ cmd: 'checkUpload', speeds: JSON.stringify(up.speeds), hz: up.hz, unit: $('unit').value }); }
-    else if (mode === 'matlab') { if (!MW) throw new Error('The MATLAB check windows could not be loaded.'); idx = +$('mwin').value; up = { speeds: MW.windows[idx].speeds.map(Math.fround), hz: MW.meta.hz }; await call({ cmd: 'checkUpload', speeds: JSON.stringify(up.speeds), hz: up.hz, unit: 'mps' }); }
+    if (mode === 'upload') { up = parseTrace(); chk = await call({ cmd: 'checkUpload', speeds: JSON.stringify(up.speeds), hz: up.hz, unit: $('unit').value }); }
+    else if (mode === 'matlab') { if (!MW) throw new Error('The MATLAB check windows could not be loaded.'); idx = +$('mwin').value; up = { speeds: MW.windows[idx].speeds.map(Math.fround), hz: MW.meta.hz }; chk = await call({ cmd: 'checkUpload', speeds: JSON.stringify(up.speeds), hz: up.hz, unit: 'mps' }); }
     else idx = +$('win').value;
   } catch (e) { failMsg(`<span class="err">${e.message.split('\n').filter(Boolean).pop()}</span>`); return; }
   running = true; hasRun = false; pvSeq++; lockRail(true); $('run').disabled = true; $('export').disabled = true; $('empty').hidden = false;
   const rows = arms.map(a => ({ k: a, name: ARMS[a].name, o: ARMS[a] })); if (mode === 'window') rows.push({ k: 'recorded', name: 'Recorded follower', o: REC });
   const q = $('queue'); qd.hidden = false; qd.open = true; qsum.textContent = `Running 0 of ${arms.length}`; q.innerHTML = rows.map(r => `<li data-k="${r.k}" data-s="wait">${swatch(r.o)}<span class="qn" title="${r.name}">${r.name}</span><span class="qt">waiting</span></li>`).join('');
   const qs = (k, s, t) => { const li = q.querySelector(`[data-k="${k}"]`); li.dataset.s = s; li.querySelector('.qt').textContent = t; };
+  /* process pane: stages as the page and worker really report them. Decision steps = (samples - 150 - 1) // 5 at 10 Hz (py/mpc_acc.py simulate): 209 for a 120 s window. */
+  const nS = mode === 'window' ? 1200 : Math.round(chk.res.seconds * 10) + 1, nDec = Math.floor((nS - 151) / 5), nPlant = nDec * 5, fmtN = n => n.toLocaleString('en-US');
+  const cnt = `<b>${nDec} decisions</b> in this ${mode === 'window' ? 'window' : 'trace'} (one every 0.5 s), and the car moves in ${fmtN(nPlant)} steps of 0.1 s; at each 0.1 s step the battery model adds up the energy.`;
+  const PT = {
+    acc: 'Tuned ACC: every 0.5 s it computes an acceleration from the gap and the speed difference to the lead car. ' + cnt,
+    smc: 'Sliding-mode controller (SMC): every 0.5 s it picks an acceleration from the gap error with a switching rule. ' + cnt,
+    sac42: 'Plain SAC: every 0.5 s a neural network picks the acceleration from 7 inputs (own speed, speed difference, gap error, gap, lead speed, lead acceleration, last acceleration). ' + cnt,
+    safesac42: 'Safe SAC: the same kind of network, plus a safety filter that checks the gap rule at every step and corrects the acceleration when it would break it. ' + cnt,
+    mpc_const: 'MPC (our car): every 0.5 s it solves an optimisation over the next 15 s (30 steps) with the battery model, using the CLARABEL solver, and assumes the lead car keeps its present speed. ' + cnt,
+    mpc_oracle: 'MPC oracle: the same optimisation, but it is given the lead car\'s true speed for the next 15 s, which no real car has. It shows the ceiling. ' + cnt };
+  const pst = [{ k: 'load', name: 'Load the lead-car trace', text: mode === 'window' ? `The 120 s of recorded lead-car speed for window #${WINDOWS[idx] ? WINDOWS[idx].win : ''} (1,200 samples at 10 Hz) is already in memory.` : `Your trace is checked (length, speed range) and resampled to 10 Hz: ${fmtN(nS)} samples.` }]
+    .concat(arms.map(a => ({ k: a, name: ARMS[a].name, text: PT[a] })));
+  if (mode === 'window') pst.push({ k: 'recorded', name: 'Recorded follower', text: 'The recorded follower\'s real speeds are replayed through the same battery model, so its energy is comparable with the controllers\'.' });
+  pst.push({ k: 'metrics', name: 'Collect the results', text: 'Energy per km, gap, jerk and safety are read from each run, then the table, charts and road view are built.' });
+  Proc.start(mode === 'window' ? 'Running on your device' : 'Running your trace on your device', pst); Proc.stage('load', 'done', 'ready'); Proc.log(`${arms.length} controller(s) selected; regen efficiency ${eta}, cap ${cap} kW; ${nDec} decisions per controller`);
   const t0 = performance.now(), R = {}; let rec = null, cur = null;
   try {
     for (let i = 0; i < arms.length; i++) {
-      cur = arms[i]; qs(cur, 'run', 'running'); setChip('running', `Running ${i + 1} of ${arms.length}`); qsum.textContent = `Running ${i + 1} of ${arms.length}`;
+      cur = arms[i]; qs(cur, 'run', 'running'); Proc.stage(cur, 'run'); setChip('running', `Running ${i + 1} of ${arms.length}`); qsum.textContent = `Running ${i + 1} of ${arms.length}`;
       const m = mode === 'window' ? await call({ cmd: 'runWindow', arm: cur, idx, eta, cap }) : await call({ cmd: 'runUpload', arm: cur, speeds: JSON.stringify(up.speeds), hz: up.hz, unit: mode === 'matlab' ? 'mps' : $('unit').value, eta, cap });
-      R[cur] = m.res; R[cur]._secs = m.secs; qs(cur, 'done', m.secs.toFixed(1) + ' s');
+      R[cur] = m.res; R[cur]._secs = m.secs; qs(cur, 'done', m.secs.toFixed(1) + ' s'); Proc.stage(cur, 'done', m.secs.toFixed(1) + ' s'); if (m.res.steps !== undefined && m.res.steps !== nDec) Proc.log(`note: the engine reports ${m.res.steps} decision steps, not ${nDec}`);
     }
-    if (mode === 'window') { cur = 'recorded'; qs(cur, 'run', 'running'); qsum.textContent = 'Replaying the recorded follower'; const m = await call({ cmd: 'runWindow', arm: 'recorded', idx, eta, cap }); rec = m.res; qs(cur, 'done', m.secs.toFixed(1) + ' s'); }
-  } catch (e) { st.innerHTML = `<span class="err">${e.message.split('\n').filter(Boolean).pop()}</span>`; if (cur) qs(cur, 'err', 'error'); qsum.textContent = 'Run failed'; setChip('error', 'Error'); running = false; lockRail(false); $('run').disabled = false; return; }
+    if (mode === 'window') { cur = 'recorded'; qs(cur, 'run', 'running'); Proc.stage(cur, 'run'); qsum.textContent = 'Replaying the recorded follower'; const m = await call({ cmd: 'runWindow', arm: 'recorded', idx, eta, cap }); rec = m.res; qs(cur, 'done', m.secs.toFixed(1) + ' s'); Proc.stage(cur, 'done', m.secs.toFixed(1) + ' s'); }
+  } catch (e) { st.innerHTML = `<span class="err">${e.message.split('\n').filter(Boolean).pop()}</span>`; if (cur) qs(cur, 'err', 'error'); Proc.fail(e.message.split('\n').filter(Boolean).pop()); qsum.textContent = 'Run failed'; setChip('error', 'Error'); running = false; lockRail(false); $('run').disabled = false; return; }
   const secs = (performance.now() - t0) / 1000; st.innerHTML = `Computed on your device in <span class="ro">${secs.toFixed(1)} s</span> Nothing was sent to a server`; qsum.textContent = `Last run: ${secs.toFixed(1)} s`; qd.open = false;
   setChip('done', `Done in ${secs.toFixed(1)} s`); running = false; lockRail(false); $('run').disabled = false;
-  render(R, rec, arms, mode, idx, eta, cap, secs);
+  Proc.stage('metrics', 'run'); await new Promise(r => setTimeout(r, 30)); Proc.stage('metrics', 'done', 'ready'); Proc.finish(true); render(R, rec, arms, mode, idx, eta, cap, secs);   /* results view is shown first so the charts measure their real width */
 }
 $('run').onclick = runSim;
 const dp3 = x => (Math.abs(x) < 0.0005 ? '0.000%' : (x > 0 ? '+' : '\u2212') + Math.abs(x).toFixed(3) + '%');
@@ -185,7 +200,7 @@ function render(R, rec, arms, mode, idx, eta, cap, secs) {
 }
 /* ---- MATLAB tab: the MATLAB-made PNG next to the website's own small speed / gap / energy charts, plus the Wh/km comparison */
 function buildMLTab(R, arms, mwin, ml) {
-  const n = mwin.n, Z = String(n).padStart(2, '0'), A = arms.filter(a => a === 'acc' || a === 'mpc_const'), pn = $('mlpanel'), src = `/figures/matlab/traces_w${Z}.png?v=20261114j`;
+  const n = mwin.n, Z = String(n).padStart(2, '0'), A = arms.filter(a => a === 'acc' || a === 'mpc_const'), pn = $('mlpanel'), src = `/figures/matlab/traces_w${Z}.png?v=20261114k`;
   let rows = '', cap = [];
   A.forEach(a => { const o = R[a], m = ml[a]; rows += `<tr><td>${swatch(ARMS[a])} ${SHORT[a]}</td><td>${fmt(m.whkm_adj, 3)}</td><td>${fmt(o.whkm_adj, 3)}</td><td>${dp3(pct(o.whkm_adj, m.whkm_adj))}</td></tr>`; cap.push(`${SHORT[a]} ${fmt(m.whkm_adj, 3)} (MATLAB) and ${fmt(o.whkm_adj, 3)} (website) Wh/km`); });
   pn.innerHTML = `<div class="mlp"><figure class="mlfig"><button type="button" class="gal-b ml-b" id="mlimg-b" aria-label="Enlarge the MATLAB figure for window ${n}"><img id="mlimg" src="${src}" alt="MATLAB R2024b figure for window ${n}: lead and follower speed, gap and cumulative energy for the ACC and the MPC"></button><figcaption>Made by MATLAB R2024b (make_site_traces.m, exportgraphics) from its own simulation of window ${n}. Click to enlarge.</figcaption></figure>` +

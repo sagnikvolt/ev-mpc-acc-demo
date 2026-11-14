@@ -47,10 +47,10 @@ async function pump() {
       let res;
       if (m.cmd === 'init') { await init(); continue; }
       if (!api) throw new Error('worker not initialised');
-      if (m.cmd === 'runWindow') res = JSON.parse(api.run_window(m.arm, m.idx, m.eta, m.cap));
-      else if (m.cmd === 'runUpload') res = JSON.parse(api.run_upload(m.arm, m.speeds, m.hz, m.unit, m.eta, m.cap));
+      if (m.cmd === 'runWindow') { post('log', { msg: `worker: ${m.arm} on window index ${m.idx}, Python call started` }); res = JSON.parse(api.run_window(m.arm, m.idx, m.eta, m.cap)); post('log', { msg: `worker: ${m.arm} finished in ${((performance.now() - t0) / 1000).toFixed(2)} s` + (res.steps !== undefined ? `, ${res.steps} decision steps` : '') }); }
+      else if (m.cmd === 'runUpload') { post('log', { msg: `worker: ${m.arm} on the uploaded trace, Python call started` }); res = JSON.parse(api.run_upload(m.arm, m.speeds, m.hz, m.unit, m.eta, m.cap)); post('log', { msg: `worker: ${m.arm} finished in ${((performance.now() - t0) / 1000).toFixed(2)} s` + (res.steps !== undefined ? `, ${res.steps} decision steps` : '') }); }
       else if (m.cmd === 'checkUpload') res = JSON.parse(api.check_upload(m.speeds, m.hz, m.unit));
-      else if (m.cmd === 'train') { await ensureML(); const info = await ensureBMW(); post('progress', { frac: 0.7, msg: 'Training ' + m.model + '...' }); res = JSON.parse(api.train(m.model, m.mode, m.n_target, m.importance)); if (info) res.data_info = info; }
+      else if (m.cmd === 'train') { await ensureML(); const info = await ensureBMW(); post('progress', { frac: 0.7, msg: 'Training ' + m.model + '...' }); post('log', { msg: `worker: Python call train(${m.model}, ${m.mode}, n_target ${m.n_target}, importance ${m.importance}) started` }); res = JSON.parse(api.train(m.model, m.mode, m.n_target, m.importance)); post('log', { msg: `worker: train finished: fit ${res.train_s.toFixed(1)} s, fit + test${m.importance ? ' + importance' : ''} ${res.total_s.toFixed(1)} s` }); if (info) res.data_info = info; }
       else throw new Error('unknown command ' + m.cmd);
       post('result', { id: m.id, cmd: m.cmd, res, secs: (performance.now() - t0) / 1000 });
     } catch (err) { post('error', { id: m.id, msg: String(err && err.message || err) }); }

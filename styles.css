@@ -557,3 +557,48 @@ body.gated .app-ws{display:block}
 /* Stable header across pages (Opus 2026-11-14): one full-width nav row everywhere, and the scrollbar gutter is always reserved so widths do not change between scrolling pages and the app pages. */
 html{scrollbar-gutter:stable}
 .nav .wrap{max-width:none}
+
+/* round k: new overview chapters */
+.ov-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;margin:0 0 20px}.ov-two .ov-fig{max-width:none}
+.ov-card.wide .ov-fig.wide{max-width:50rem}
+.ov-h4.first{margin-top:0}.ov-vis .ov-h4{margin:28px 0 8px;font:500 15px/22px var(--sans)}
+.mlc-s{display:flex;flex-direction:column;gap:2px;font-size:12px!important;line-height:18px!important;color:var(--text3)!important;margin:0 0 8px!important}.mlc-s b{color:var(--text2)}
+.mlc.ours .ctl-tag{color:var(--accent)}
+.ov-sort{width:100%;max-width:44rem;margin:0 0 20px}.ov-sort caption{text-align:left;padding:0 0 8px}
+.ov-sort th button{all:unset;cursor:pointer;color:var(--text2);font:500 13px/20px var(--sans);display:inline-flex;gap:6px;align-items:center;min-height:32px}
+.ov-sort th button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.ov-sort th[aria-sort=ascending] button,.ov-sort th[aria-sort=descending] button{color:var(--text)}
+.ov-sort th[aria-sort=ascending] button::after{content:"\2191";color:var(--accent)}.ov-sort th[aria-sort=descending] button::after{content:"\2193";color:var(--accent)}
+.ov-sort td,.ov-sort th[scope=row]{font:400 13px/20px var(--sans);text-align:left;padding:6px 16px 6px 0;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}.ov-sort td{font-family:var(--mono)}.ov-sort th[scope=row]{font-weight:400;color:var(--text)}
+.ov-sort tr.hl th[scope=row]{color:var(--accent)}.ov-sort tr.hl td{color:var(--accent)}
+.sc-d{fill:var(--text2);fill-opacity:.85}.sc-acc{fill:var(--accent)}.sc-p:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}.sc-p:hover circle{fill-opacity:1;stroke:var(--text);stroke-width:1}
+.zero-l{stroke:var(--text3);stroke-width:1}.net-l{stroke:var(--text);stroke-width:2;fill:none}
+.sgs{stroke:var(--card);stroke-width:1}.sgs0{fill:var(--text);fill-opacity:.8}.sgs1{fill:var(--text);fill-opacity:.58}.sgs2{fill:var(--text);fill-opacity:.4}.sgs3{fill:var(--text);fill-opacity:.26}.sgs4{fill:var(--text);fill-opacity:.14}
+.sgs-r{fill:url(#ov-hatch);stroke:var(--text2);stroke-width:1}.hatch-bg{fill:var(--card)}.hatch-l{stroke:var(--text2);stroke-width:2}
+.ov-leg{max-width:34rem;margin:12px 0 4px}.ov-leg caption{text-align:left;padding:0 0 6px}.ov-leg th,.ov-leg td{text-align:left;padding:5px 16px 5px 0;border-bottom:1px solid var(--line);font-size:13px;line-height:20px}
+.ov-leg td{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}.ov-leg thead th:not(:first-child){text-align:right}.ov-leg th[scope=row]{font-weight:400;color:var(--text2)}.ov-leg tr.tot th,.ov-leg tr.tot td{color:var(--text);font-weight:500}
+.sg{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:8px;vertical-align:-1px;border:1px solid var(--card);background:var(--text)}
+.sg0{opacity:.8}.sg1{opacity:.58}.sg2{opacity:.4}.sg3{opacity:.26}.sg4{opacity:.14}.sg5{background:repeating-linear-gradient(45deg,var(--text2) 0 2px,var(--card) 2px 5px);border-color:var(--text2)}
+.eq{margin-top:4px}.eq .ctl-tag{font-size:12px;color:var(--text2)}.fcg{grid-template-columns:repeat(2,minmax(0,1fr))}.fct .kv{font-size:20px!important}
+@media(max-width:1100px){.ov-two{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:700px){.fcg{grid-template-columns:minmax(0,1fr)}}
+.ecc{margin:12px 0 4px}.ecc .ov-two{margin-top:12px;align-items:start}.ecc .ov-text p{margin:0 0 10px}.ov-unsrc{margin-top:4px}
+/* ---- Process pane (Run it / Train it): shown instead of the results while a run computes ---- */
+.stage.pv-proc>:not(.stage-title):not(#procbar):not(#proc):not(footer):not(.stage-note){display:none}
+.stage:not(.pv-proc)>#proc{display:none}
+.procbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.procbar-n{font-size:12px}
+.proc{padding:18px 20px}.proc-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.proc-t{font:600 16px/24px var(--sans);margin:0}.proc-time{font-size:14px;font-variant-numeric:tabular-nums}.proc-time .mono{font-size:20px;color:var(--text)}
+.proc-st{list-style:none;margin:0;padding:0;position:relative}
+.proc-st li{display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;padding:8px 0;position:relative;color:var(--text3)}
+.proc-st li:not(:last-child)::before{content:"";position:absolute;left:13px;top:36px;bottom:-8px;width:2px;background:var(--line)}
+.proc-st .pk{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font:500 12px/1 var(--mono);border:1.5px solid var(--line2);background:var(--card);position:relative;z-index:1}
+.proc-st .pn{display:flex;justify-content:space-between;gap:12px;font:500 14px/22px var(--sans)}.proc-st .pq{font:400 12px/22px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.proc-st .px{margin:2px 0 0;font:400 13px/20px var(--sans);max-width:52rem}
+.proc-st li[data-s=run]{color:var(--text)}.proc-st li[data-s=run] .pk{border-color:var(--accent);background:var(--accent);color:var(--card)}.proc-st li[data-s=run] .pq{color:var(--accent)}
+.proc-st li[data-s=run] .px{color:var(--text2)}.proc-st li[data-s=done]{color:var(--text2)}.proc-st li[data-s=done] .pk{border-color:var(--text2);color:var(--text2)}.proc-st li[data-s=done] .pq{color:var(--text)}
+.proc-st li[data-s=wait] .px,.proc-st li[data-s=done] .px,.proc-st li[data-s=skip] .px{color:var(--text3)}.proc-st li[data-s=err] .pk{border-color:var(--bad);color:var(--bad)}.proc-st li[data-s=err] .pq{color:var(--bad)}
+.proc-lh{margin:14px 0 6px;font:500 12px/16px var(--sans);color:var(--text3);text-transform:none}
+.proc-log{margin:0;padding:10px 12px;max-height:190px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--bg);font:400 12px/18px var(--mono);white-space:pre-wrap;word-break:break-word;color:var(--text2)}
+@media(prefers-reduced-motion:no-preference){.proc-st li[data-s=run] .pk{animation:procp 1.6s ease-in-out infinite}@keyframes procp{50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 25%,transparent)}}}
+.mlfig{margin:14px 0 0;max-width:46rem}.mlfig .gal-b{display:block;width:100%;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:zoom-in}.mlfig img{display:block;width:100%;height:auto;border-radius:9px}.mlfig figcaption{margin-top:6px}

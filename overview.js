@@ -68,7 +68,71 @@
     el.innerHTML = svg(W, H, el.getAttribute('aria-label') || '', g);
   }
 
-  const R = { hbar, range, stack, group }, charts = [];
+
+  /* scatter: error against time per prediction (log x axis, plus a "~0" band for values the table rounds to 0.0) */
+  function scatter(el, c) {
+    const W = Math.max(260, Math.floor(el.clientWidth)), H = W < 420 ? 262 : 292, m = { l: 40, r: 14, t: 26, b: 44 }, right = W - m.r, zx = m.l + 10, lx0 = m.l + 40;
+    const X = v => v < 0.5 ? zx : lx0 + Math.log10(Math.max(v, 1)) / 3 * (right - lx0), Y = v => H - m.b - (v - c.ymin) / (c.ymax - c.ymin) * (H - m.t - m.b); let g = '';
+    for (let v = c.ymin; v <= c.ymax + 1e-9; v += c.ystep) g += `<line class="grid-h" x1="${m.l}" x2="${right}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${m.l - 6}" y="${Y(v) + 4}" text-anchor="end">${v.toFixed(1)}</text>`;
+    g += `<text x="${zx}" y="${H - m.b + 16}" text-anchor="middle">~0</text><path class="wh" d="M${(zx + lx0) / 2 - 3} ${H - m.b - 4}l6 8" style="stroke-width:1"/>`;
+    [1, 10, 100, 1000].forEach(t => { g += `<line class="grid-h" x1="${X(t)}" x2="${X(t)}" y1="${m.t}" y2="${H - m.b}"/><text x="${X(t)}" y="${H - m.b + 16}" text-anchor="${t === 1000 ? 'end' : 'middle'}">${t}</text>`; });
+    g += `<text x="${(m.l + right) / 2}" y="${H - 6}" text-anchor="middle">time per prediction (microseconds, log scale)</text><text x="2" y="10" text-anchor="start">error (kW)</text>`;
+    const placed = c.pts.map(p => ({ x: X(p.x), y: Y(p.y), w: p.l.length * 6.4 + 4 })), boxes = placed.map(p => [p.x - 7, p.y - 7, p.x + 7, p.y + 7]), hit = (a, b) => !(a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1]);
+    c.pts.forEach((p, i) => {
+      const q = placed[i], tip = `${p.l}: error ${p.y.toFixed(2)} kW, ${p.x < 0.05 ? 'under 0.1' : p.x.toFixed(1)} microseconds per prediction`;
+      const cand = [['start', q.x + 9, q.y + 4, [q.x + 8, q.y - 8, q.x + 9 + q.w, q.y + 8]], ['end', q.x - 9, q.y + 4, [q.x - 9 - q.w, q.y - 8, q.x - 8, q.y + 8]], ['middle', q.x, q.y - 12, [q.x - q.w / 2, q.y - 22, q.x + q.w / 2, q.y - 10]], ['middle', q.x, q.y + 20, [q.x - q.w / 2, q.y + 10, q.x + q.w / 2, q.y + 22]]];
+      let pick = cand.find(k => k[3][0] >= 0 && k[3][2] <= W && !boxes.some((b, j) => hit(k[3], b))) || cand[0]; boxes.push(pick[3]);
+      g += `<g class="sc-p" tabindex="0" role="img" aria-label="${esc(tip)}"><title>${esc(tip)}</title><circle cx="${q.x}" cy="${q.y}" r="${p.cls === 'ours' ? 6 : 5}" class="${p.cls === 'ours' ? 'sc-acc' : 'sc-d'}"/><text x="${pick[1]}" y="${pick[2]}" text-anchor="${pick[0]}" class="ob-l${p.cls === 'ours' ? ' acc' : ''}">${esc(p.l)}</text></g>`;
+    });
+    el.innerHTML = svg(W, H, el.getAttribute('aria-label') || '', g);
+  }
+
+  /* diverging stacked bars: positive terms to the right, regen (last term) to the left, a line at the net */
+  function divstack(el, c) {
+    const W = Math.max(280, Math.floor(el.clientWidth)), rh = 70, top = 6, X = v => (v - c.min) / (c.max - c.min) * (W - 10) + 2, H = top + c.rows.length * rh + 22; let g = `<defs><pattern id="ov-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" class="hatch-bg"/><line x1="0" y1="0" x2="0" y2="6" class="hatch-l"/></pattern></defs>`;
+    for (let t = c.min; t <= c.max + 1e-9; t += c.step) g += `<line class="${t === 0 ? 'zero-l' : 'grid-h'}" x1="${X(t)}" x2="${X(t)}" y1="${top}" y2="${H - 20}"/><text x="${X(t)}" y="${H - 6}" text-anchor="${t === c.min ? 'start' : t === c.max ? 'end' : 'middle'}">${t}</text>`;
+    c.rows.forEach((r, i) => {
+      const y = top + i * rh; let pos = 0; g += `<g class="ob-row" tabindex="0" role="img" aria-label="${esc(r.l + ': ' + r.segs.map((v, k) => c.names[k] + ' ' + fmt(v, 1)).join(', ') + '; net ' + fmt(r.net, 1) + ' Wh per km')}"><title>${esc(r.l + '\n' + r.segs.map((v, k) => c.names[k] + ': ' + fmt(v, 1) + ' Wh/km').join('\n') + '\nNet: ' + fmt(r.net, 1) + ' Wh/km')}</title><text x="2" y="${y + 13}" class="ob-l${r.ours ? ' acc' : ''}">${esc(r.l)}</text>`;
+      r.segs.forEach((v, k) => { if (k < r.segs.length - 1) { g += `<rect class="sgs sgs${k}" x="${X(pos)}" y="${y + 20}" width="${Math.max(0.5, X(pos + v) - X(pos))}" height="18"/>`; pos += v; } else g += `<rect class="sgs-r" x="${X(v)}" y="${y + 20}" width="${X(0) - X(v)}" height="18"/>`; });
+      g += `<path class="net-l" d="M${X(r.net)} ${y + 16}V${y + 44}"/><text x="${X(r.net) + 5}" y="${y + 56}" class="ob-v">net ${fmt(r.net, 1)}</text></g>`;
+    });
+    el.innerHTML = svg(W, H, el.getAttribute('aria-label') || '', g);
+  }
+
+  /* sortable table (rows are in the page already; this only re-orders them) */
+  (function () {
+    const t = $('ml-sort'); if (!t) return; const tb = t.tBodies[0], hs = [...t.tHead.rows[0].cells];
+    hs.forEach((th, ci) => { const b = th.querySelector('button'); if (!b) return; b.addEventListener('click', () => {
+      const asc = th.getAttribute('aria-sort') !== 'ascending', txt = b.dataset.t === 's'; hs.forEach(h => h.setAttribute('aria-sort', 'none')); th.setAttribute('aria-sort', asc ? 'ascending' : 'descending');
+      const key = r => txt ? r.cells[0].textContent : parseFloat(r.cells[ci].dataset.v); [...tb.rows].sort((a, b2) => { const x = key(a), y = key(b2); return (txt ? String(x).localeCompare(y) : x - y) * (asc ? 1 : -1); }).forEach(r => tb.appendChild(r)); }); });
+  })();
+
+
+  /* dots on a line: one value per setting (x categories), a reference band 0..-x not needed; y axis in percent */
+  function dotline(el, c) {
+    const W = Math.max(260, Math.floor(el.clientWidth)), H = 230, m = { l: 44, r: 16, t: 22, b: 44 }, n = c.pts.length, X = i => m.l + (n === 1 ? 0.5 : i / (n - 1)) * (W - m.l - m.r) * 0.92 + (W - m.l - m.r) * 0.04, Y = v => m.t + (v - c.ymax) / (c.ymin - c.ymax) * (H - m.t - m.b); let g = '';
+    for (let v = c.ymax; v >= c.ymin - 1e-9; v -= c.ystep) g += `<line class="${Math.abs(v) < 1e-9 ? 'zero-l' : 'grid-h'}" x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${m.l - 6}" y="${Y(v) + 4}" text-anchor="end">${fmt(v, 0)}%</text>`;
+    g += `<text x="${(m.l + W - m.r) / 2}" y="${H - 6}" text-anchor="middle">${esc(c.xlabel)}</text>`;
+    g += `<path class="ln" d="${c.pts.map((p, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(p.v).toFixed(1)).join('')}" style="stroke:var(--text3);stroke-width:1.5"/>`;
+    c.pts.forEach((p, i) => { const tip = `${c.xlabel} ${p.l}: ${fmt(p.v, 2)}%, ${p.note}`, own = p.cls === 'ours'; g += `<g class="sc-p" tabindex="0" role="img" aria-label="${esc(tip)}"><title>${esc(tip)}</title><circle cx="${X(i)}" cy="${Y(p.v)}" r="${own ? 6.5 : 5}" class="${own ? 'sc-acc' : 'sc-d'}"/><text x="${X(i)}" y="${Y(p.v) + (p.v < (c.ymin + c.ymax) / 2 ? -12 : 20)}" text-anchor="middle" class="ob-v">${fmt(p.v, 2)}%</text><text x="${X(i)}" y="${H - m.b + 16}" text-anchor="middle" class="ob-l${own ? ' acc' : ''}">${esc(p.l)}</text></g>`; });
+    el.innerHTML = svg(W, H, el.getAttribute('aria-label') || '', g);
+  }
+
+  /* two bars per row (for example MATLAB and Python), label above, values after the bars */
+  function pairbar(el, c) {
+    const W = Math.max(260, Math.floor(el.clientWidth)), padR = 62, rh = 56, top = 22, X = v => v / c.max * (W - padR), H = top + c.rows.length * rh + 22; let g = '';
+    c.names.forEach((nm, k) => { const x0 = k * (W < 420 ? 110 : 150); g += `<rect class="${k ? 'ob2' : 'ob'}" x="${x0}" y="2" width="10" height="10" rx="2"/><text x="${x0 + 16}" y="11" class="ob-l">${esc(nm)}</text>`; });
+    ticksOf(c.max, c.step).forEach(t => { g += `<line class="grid-h" x1="${X(t)}" x2="${X(t)}" y1="${top}" y2="${H - 20}"/><text x="${X(t)}" y="${H - 6}" text-anchor="${t === 0 ? 'start' : 'middle'}">${t}</text>`; });
+    c.rows.forEach((r, i) => {
+      const y = top + i * rh, tip = `${r.l}: ${c.names.map((nm, k) => nm + ' ' + r.v[k].toFixed(c.dec)).join(', ')} kW`;
+      g += `<g class="ob-row" tabindex="0" role="img" aria-label="${esc(tip)}"><title>${esc(tip)}</title><text x="0" y="${y + 11}" class="ob-l${r.cls === 'ours' ? ' acc' : ''}">${esc(r.l)}</text>`;
+      r.v.forEach((v, k) => { g += `<rect class="${k ? 'ob2' : 'ob'}" x="0" y="${y + 16 + k * 16}" width="${Math.max(2, X(v)).toFixed(1)}" height="12" rx="2"/><text x="${X(v) + 7}" y="${y + 26 + k * 16}" class="ob-v">${v.toFixed(c.dec)}</text>`; });
+      g += '</g>';
+    });
+    el.innerHTML = svg(W, H, el.getAttribute('aria-label') || '', g);
+  }
+
+  const R = { hbar, range, stack, group, scatter, divstack, dotline, pairbar }, charts = [];
   Object.keys(D).forEach(k => { const el = $('ov-' + k.replace(/^c/, 'c')), c = D[k]; if (el && R[c.type]) charts.push([el, c, 0]); });
   const draw = () => charts.forEach(t => { const w = Math.floor(t[0].clientWidth); if (w && w !== t[2]) { t[2] = w; R[t[1].type](t[0], t[1]); } });
   draw(); let tm = 0; window.addEventListener('resize', () => { clearTimeout(tm); tm = setTimeout(draw, 120); });

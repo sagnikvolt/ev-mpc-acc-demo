@@ -5,7 +5,7 @@
 <meta name="color-scheme" content="dark light">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="/styles.css?v=20261114j">
+<link rel="stylesheet" href="/styles.css?v=20261114k">
 <script>(function(){var m={'#sec-results':'/overview/','#sec-run':'/run/','#sec-train':'/train/','#sec-matlab':'/matlab/','#sec-code':'/code/','#sec-about':'/about/','#sec-links':'/about/#credits'},t=m[location.hash];if(t)location.replace(t)})();</script>
 </head><body class="home" data-page="home" data-engine="0">
 <a class="skip" href="#main">Skip to content</a>
@@ -32,7 +32,7 @@
 </section>
 <div class="wrap home-rest">
 <section class="home-sec" aria-labelledby="h-do"><h2 id="h-do">What you can do here</h2>
-<div class="hgrid"><a class="hcard" href="/overview/"><h3>Overview</h3><p>The project in ten short chapters, from the problem to the limits, with one chart each.</p><div class="hv">−1.89%</div><div class="hc">median change in battery energy, our MPC car vs 79 recorded commercial-ACC cars; lower in 59</div></a><a class="hcard" href="/run/"><h3>Run it</h3><p>Replay a recorded window, or your own speed trace, through six controllers on your device.</p><div class="hv">160</div><div class="hc">recorded test windows of 120 s to choose from</div></a><a class="hcard" href="/train/"><h3>Train it</h3><p>Train a battery-power model on the BMW i3 data and compare it with the paper's.</p><div class="hv">3.751 kW</div><div class="hc">held-out power RMSE of the paper's LightGBM on the physics residual, fold 0</div></a><a class="hcard" href="/matlab/"><h3>MATLAB check</h3><p>An independent MATLAB R2024b re-write of the simulator, compared with this website.</p><div class="hv">0.002%</div><div class="hc">largest website vs MATLAB difference for the MPC, 10 windows</div></a><a class="hcard" href="/code/"><h3>Code</h3><p>Read, copy or download the Python and MATLAB files behind the page.</p><div class="hv">10 files</div><div class="hc">in one zip with LICENSE and README (29 KB)</div></a></div></section>
+<div class="hgrid"><a class="hcard" href="/overview/"><h3>Overview</h3><p>The project in twelve short chapters, from the problem to the limits, with one chart each.</p><div class="hv">−1.89%</div><div class="hc">median change in battery energy, our MPC car vs 79 recorded commercial-ACC cars; lower in 59</div></a><a class="hcard" href="/run/"><h3>Run it</h3><p>Replay a recorded window, or your own speed trace, through six controllers on your device.</p><div class="hv">160</div><div class="hc">recorded test windows of 120 s to choose from</div></a><a class="hcard" href="/train/"><h3>Train it</h3><p>Train a battery-power model on the BMW i3 data and compare it with the paper's.</p><div class="hv">3.751 kW</div><div class="hc">held-out power RMSE of the paper's LightGBM on the physics residual, fold 0</div></a><a class="hcard" href="/matlab/"><h3>MATLAB check</h3><p>An independent MATLAB R2024b re-write of the simulator, compared with this website.</p><div class="hv">0.002%</div><div class="hc">largest website vs MATLAB difference for the MPC, 10 windows</div></a><a class="hcard" href="/code/"><h3>Code</h3><p>Read, copy or download the Python and MATLAB files behind the page.</p><div class="hv">10 files</div><div class="hc">in one zip with LICENSE and README (29 KB)</div></a></div></section>
 <section class="home-sec" aria-labelledby="h-how"><h2 id="h-how">How it works</h2>
 <ol class="how"><li><strong>Recorded traffic.</strong> Real car-following data from the OpenACC campaigns: 160 test windows, each 120 s of a lead car's speed with a real car behind it, from days the controllers never saw.</li><li><strong>Battery model.</strong> Every energy figure, the recorded cars' included, comes from one frozen BMW i3 battery model (regen efficiency 0.65 and a 35 kW cap in the paper).</li><li><strong>Controllers.</strong> A tuned ACC, a sliding-mode controller, two reinforcement-learning controllers and our battery-aware MPC drive a simulated car behind the lead car's recorded speed; an oracle MPC shows the ceiling.</li></ol></section>
 <footer><p>Car-following data: OpenACC, European Commission Joint Research Centre (JRC), used with acknowledgement. Battery data: BMW i3 measurements, Technical University of Munich, licence CC BY 4.0. Code: MIT licence, github.com/sagnikvolt/ev-mpc-acc, Zenodo DOI 10.5281/zenodo.24186267.</p><p>Python runs in your browser through Pyodide, loaded from the jsDelivr CDN; the typefaces (IBM Plex) load from Google Fonts. No cookies, no analytics, and none of your data is sent anywhere.</p><p>Design pass guided by unslop by Damir Sokolovsky (CC BY 4.0)</p></footer>
@@ -40,8 +40,8 @@
 </main>
 
 
-<script src="/viz.js?v=20261114j"></script>
-<script src="/road.js?v=20261114j"></script>
-<script src="/common.js?v=20261114j"></script>
-<script type="module" src="/hero3d.js?v=20261114j"></script>
+<script src="/viz.js?v=20261114k"></script>
+<script src="/road.js?v=20261114k"></script>
+<script src="/common.js?v=20261114k"></script>
+<script type="module" src="/hero3d.js?v=20261114k"></script>
 </body></html>

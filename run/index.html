@@ -5,7 +5,7 @@
 <meta name="color-scheme" content="dark light">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="/styles.css?v=20261114j">
+<link rel="stylesheet" href="/styles.css?v=20261114k">
 
 </head><body class="app" data-page="run" data-engine="1">
 <a class="skip" href="#main">Skip to content</a>
@@ -50,6 +50,8 @@
 </aside>
 <div class="stage" tabindex="0" role="region" aria-label="Run results, scrollable">
 <div class="stage-title"><h1 class="pt">Run it yourself</h1><p class="intro">Replay one of the 160 recorded test windows (120 s of real driving) or your own lead-speed trace through the controllers, with your battery assumptions. The simulation runs in your browser; for the test windows the stored result of the paper's own run is shown beside it.</p></div>
+<div class="procbar" id="procbar" hidden><div class="seg" role="radiogroup" aria-label="Right panel view"><label><input type="radio" name="pview" value="proc"><span>Process</span></label><label><input type="radio" name="pview" value="res" checked><span>Results</span></label></div><span class="meta procbar-n">Process shows what the computer is doing; Results shows the numbers.</span></div>
+<div class="card proc" id="proc"><div class="proc-head"><h2 class="proc-t" id="proc-title">What is happening</h2><div class="proc-time"><span class="mono" id="proc-el">0.0 s</span><span class="meta"> elapsed</span></div></div><ol class="proc-st" id="proc-st"></ol><div class="proc-lh">Log of the worker's messages</div><pre class="proc-log mono" id="proc-log" tabindex="0" role="log" aria-label="Log of worker messages"></pre></div>
 <div class="card rvcard"><div id="rv-run"></div><div id="rv-empty" class="rv-empty" hidden>Upload a lead-speed trace and press run. The road view shows the computed lanes.</div><div class="lim mut rvcap" id="rv-cap"></div></div>
 <div class="tiles" id="tiles">
 <div class="tile ours"><div class="tl">Our car</div><div class="tv" id="t1">-</div><div class="ts" id="t1s">Wh/km, MPC const-speed</div><div class="ts tm" id="t1m" hidden></div></div>
@@ -78,7 +80,7 @@
 </main>
 
 <dialog id="lb" class="lb" aria-label="Enlarged screenshot"><form method="dialog" class="lb-bar"><span class="lb-n meta" id="lb-n"></span><button type="button" class="alt sm" id="lb-prev" aria-label="Previous image">Previous</button><button type="button" class="alt sm" id="lb-next" aria-label="Next image">Next</button><button class="alt sm" id="lb-x" value="close">Close</button></form><img id="lb-img" alt=""><p class="lb-cap" id="lb-cap"></p></dialog>
-<script src="/road.js?v=20261114j"></script>
-<script src="/common.js?v=20261114j"></script>
-<script src="/run.js?v=20261114j"></script>
+<script src="/road.js?v=20261114k"></script>
+<script src="/common.js?v=20261114k"></script>
+<script src="/run.js?v=20261114k"></script>
 </body></html>

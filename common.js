@@ -32,12 +32,13 @@ const pct = (a, b) => (100 * (a - b) / b);
 const sgn = x => (x > 0 ? '+' : '') + x.toFixed(2).replace('-', '\u2212') + '%';
 
 /* ---------------- worker plumbing ---------------- */
-const worker = ENGINE && DESKTOP ? new Worker('/worker.js?v=20261114j', { type: 'module' }) : null;   // phones and tablets never create the worker, so Pyodide and the data files are never requested
+const worker = ENGINE && DESKTOP ? new Worker('/worker.js?v=20261114k', { type: 'module' }) : null;   // phones and tablets never create the worker, so Pyodide and the data files are never requested
 let nextId = 1; const pending = new Map(); let readyRes, readyRej; const ready = new Promise((a, b) => { readyRes = a; readyRej = b; });
 function setBar(frac, msg) { $('lbar').style.transform = 'scaleX(' + frac.toFixed(3) + ')'; $('lmsg').textContent = readyInfo ? msg : 'Loading the engine… (first visit downloads ~30 MB)'; if (!readyInfo) setChip('loading', 'Loading engine ' + Math.round(frac * 100) + '%'); if (progressSink) progressSink(frac, msg); }
 if (worker) worker.onmessage = e => {
   const m = e.data;
-  if (m.type === 'progress') setBar(m.frac, m.msg);
+  if (m.type === 'progress') { setBar(m.frac, m.msg); if (Proc.running) Proc.log(m.msg); }
+  else if (m.type === 'log') Proc.log(m.msg);
   else if (m.type === 'ready') { readyInfo = m; WINDOWS = m.windows; PYV = m.pyodide; setBar(1, 'Engine ready · ' + m.secs.toFixed(1) + ' s on your device'); $('lbar').parentNode.style.display = 'none'; readyRes(m); READY.forEach(f => f()); }
   else if (m.type === 'result') { const p = pending.get(m.id); if (p) { pending.delete(m.id); p.res(m); } }
   else if (m.type === 'error') { const p = pending.get(m.id); if (p) { pending.delete(m.id); p.rej(new Error(m.msg)); } else { $('lmsg').innerHTML = '<span class="err">Could not start the Python runtime: ' + m.msg + '</span>'; readyRej(new Error(m.msg)); } }
@@ -90,3 +91,39 @@ window.runSelfTest = async function (opts) {
   rep.overall_pass = ARM_ORDER.every(a => arms[a].pass) && (!lgbm || lgbm.pass); window.__selfTest = rep; window.__selfTestProgress = 'done'; return rep;
 };
 
+
+/* ---------------- Process pane: what is happening while Run it / Train it computes ----------------
+   Stages are driven by what the page and the worker really report (per controller on Run it; per Python call on Train it). It shows elapsed time and the stage that is running, a short plain explanation of that stage, and a time-stamped log of the worker's messages. No percentages: the worker does not report any. */
+const Proc = (function () {
+  const el = $('proc'), bar = $('procbar'), st = document.querySelector('.stage');
+  const none = { running: false, log() {}, start() {}, stage() {}, finish() {}, fail() {}, note() {} };
+  if (!el || !bar || !st) return none;
+  let t0 = 0, tm = 0, cur = null, curT = 0, running = false, nLog = 0; const list = $('proc-st'), logEl = $('proc-log'), elapsed = $('proc-el'), title = $('proc-title'), radios = bar.querySelectorAll('input[name=pview]');
+  const secs = () => (performance.now() - t0) / 1000, f1 = s => s.toFixed(1) + ' s', esc = x => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const view = v => { st.classList.toggle('pv-proc', v === 'proc'); radios.forEach(r => { r.checked = r.value === v; }); };
+  radios.forEach(r => { r.onchange = () => view(r.value); });
+  const li = k => list.querySelector(`[data-k="${k}"]`);
+  const setT = (k, s, txt) => { const l = li(k); if (!l) return; l.dataset.s = s; l.querySelector('.pq').textContent = txt; if (s === 'run') l.setAttribute('aria-current', 'step'); else l.removeAttribute('aria-current'); };
+  function tick() { elapsed.textContent = f1(secs()); if (cur) setT(cur, 'run', 'running ' + f1((performance.now() - curT) / 1000)); }
+  function log(msg) {
+    if (!running && !nLog) return; const line = `[+${secs().toFixed(1).padStart(5)} s] ${msg}`; nLog++;
+    const near = logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight < 30; logEl.textContent += (logEl.textContent ? '\n' : '') + line; if (near) logEl.scrollTop = logEl.scrollHeight;
+  }
+  return {
+    get running() { return running; },
+    log,
+    start(ttl, stages) {
+      title.textContent = ttl; nLog = 0; logEl.textContent = ''; cur = null;
+      list.innerHTML = stages.map((s, i) => `<li data-k="${s.k}" data-s="wait"><span class="pk">${i + 1}</span><div class="pb"><div class="pn"><span>${esc(s.name)}</span><span class="pq">waiting</span></div><p class="px">${s.text}</p></div></li>`).join('');
+      bar.hidden = false; view('proc'); t0 = performance.now(); running = true; elapsed.textContent = '0.0 s'; clearInterval(tm); tm = setInterval(tick, 100); log('started');
+    },
+    stage(k, s, txt) {   /* s: run | done | skip | err */
+      const now = performance.now();
+      if (s === 'run') { if (cur && cur !== k) { setT(cur, 'done', f1((now - curT) / 1000)); } cur = k; curT = now; setT(k, 'run', 'running 0.0 s'); const l = li(k); if (l && l.scrollIntoView && st.classList.contains('pv-proc')) { /* keep the current stage in view in short windows */ const r = l.getBoundingClientRect(); if (r.top < 0 || r.bottom > innerHeight) l.scrollIntoView({ block: 'nearest' }); } }
+      else { if (cur === k) cur = null; setT(k, s, txt !== undefined ? txt : f1((now - curT) / 1000)); }
+    },
+    note(k, html) { const l = li(k); if (l) l.querySelector('.px').innerHTML += ' ' + html; },
+    finish(auto) { running = false; clearInterval(tm); if (cur) { setT(cur, 'done', f1((performance.now() - curT) / 1000)); cur = null; } elapsed.textContent = f1(secs()); title.textContent = 'Finished in ' + f1(secs()); log('finished'); if (auto) view('res'); },
+    fail(msg) { running = false; clearInterval(tm); if (cur) { setT(cur, 'err', 'error'); cur = null; } elapsed.textContent = f1(secs()); title.textContent = 'Stopped after ' + f1(secs()); log('error: ' + msg); view('proc'); }
+  };
+})();

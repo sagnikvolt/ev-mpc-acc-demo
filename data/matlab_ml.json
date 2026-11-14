@@ -1,0 +1,143 @@
+{
+ "generated": "2026-11-14",
+ "matlab": "R2024b Update 5, Statistics and Machine Learning Toolbox",
+ "split": "fold 0 held out (train folds != 0), data/bmw_i3_train.npz",
+ "prereg": "matlab/verify/ml_prereg.md (written before export and run)",
+ "n_train": 164902,
+ "n_test": 36950,
+ "rows": [
+  {
+   "model": "ridge",
+   "python_counterpart": "ridge",
+   "mode": "resid",
+   "matlab_rmse_kw": 4.06806759339301,
+   "python_rmse_kw": 4.068067593393194,
+   "website_rmse_kw": 4.0680675906528965,
+   "diff_pct_vs_python": -4.518607710224387e-12,
+   "matlab_trip_energy_err_median_pct": 6.33755943381815,
+   "python_trip_energy_err_median_pct": 6.337559433821024,
+   "matlab_fit_s": 0.1392713,
+   "python_fit_s": 1.4493117332458496,
+   "same_algorithm": true
+  },
+  {
+   "model": "knn",
+   "python_counterpart": "knn",
+   "mode": "resid",
+   "matlab_rmse_kw": 3.83719082721128,
+   "python_rmse_kw": 3.837195839753784,
+   "website_rmse_kw": 3.837195842607085,
+   "diff_pct_vs_python": -0.00013063035386728927,
+   "matlab_trip_energy_err_median_pct": 5.64521012310677,
+   "python_trip_energy_err_median_pct": 5.645192656720818,
+   "matlab_fit_s": 7.2862862,
+   "python_fit_s": 0.13836407661437988,
+   "same_algorithm": true
+  },
+  {
+   "model": "svr",
+   "python_counterpart": "svr",
+   "mode": "resid",
+   "matlab_rmse_kw": 3.80342197342876,
+   "python_rmse_kw": 3.800689022517714,
+   "website_rmse_kw": 3.800800893643208,
+   "diff_pct_vs_python": 0.07190672256671693,
+   "matlab_trip_energy_err_median_pct": 8.44384377145843,
+   "python_trip_energy_err_median_pct": 8.47575151193699,
+   "matlab_fit_s": 6.2855327,
+   "python_fit_s": 2.695648193359375,
+   "same_algorithm": true
+  },
+  {
+   "model": "lsboost",
+   "python_counterpart": "LightGBM",
+   "mode": "resid",
+   "matlab_rmse_kw": 3.68725251456004,
+   "python_rmse_kw": 3.7514086085667304,
+   "website_rmse_kw": 3.751408605803729,
+   "diff_pct_vs_python": -1.7101867778461566,
+   "matlab_trip_energy_err_median_pct": 9.6814271240347,
+   "python_trip_energy_err_median_pct": 9.434667338976292,
+   "matlab_fit_s": 133.0433692,
+   "python_fit_s": 3.707066774368286,
+   "same_algorithm": false
+  },
+  {
+   "model": "ridge",
+   "python_counterpart": "ridge",
+   "mode": "pure",
+   "matlab_rmse_kw": 4.38465662800939,
+   "python_rmse_kw": 4.384656628009216,
+   "website_rmse_kw": null,
+   "diff_pct_vs_python": 3.9745984281580604e-12,
+   "matlab_trip_energy_err_median_pct": 6.56230127800695,
+   "python_trip_energy_err_median_pct": 6.56230127800699,
+   "matlab_fit_s": 0.0168579,
+   "python_fit_s": 0.39979124069213867,
+   "same_algorithm": true
+  },
+  {
+   "model": "knn",
+   "python_counterpart": "knn",
+   "mode": "pure",
+   "matlab_rmse_kw": 4.85860200652602,
+   "python_rmse_kw": 4.858607067738132,
+   "website_rmse_kw": null,
+   "diff_pct_vs_python": -0.00010417002324070168,
+   "matlab_trip_energy_err_median_pct": 6.14409833881501,
+   "python_trip_energy_err_median_pct": 6.144562661272787,
+   "matlab_fit_s": 7.3196552,
+   "python_fit_s": 0.11607074737548828,
+   "same_algorithm": true
+  },
+  {
+   "model": "svr",
+   "python_counterpart": "svr",
+   "mode": "pure",
+   "matlab_rmse_kw": 4.1028193212269,
+   "python_rmse_kw": 4.103536664685903,
+   "website_rmse_kw": null,
+   "diff_pct_vs_python": -0.017481102707717078,
+   "matlab_trip_energy_err_median_pct": 7.72577275876424,
+   "python_trip_energy_err_median_pct": 7.815777667581443,
+   "matlab_fit_s": 5.6634667,
+   "python_fit_s": 2.4574601650238037,
+   "same_algorithm": true
+  },
+  {
+   "model": "lsboost",
+   "python_counterpart": "LightGBM",
+   "mode": "pure",
+   "matlab_rmse_kw": 4.17876937549358,
+   "python_rmse_kw": 4.222643508181647,
+   "website_rmse_kw": 4.222643509939927,
+   "diff_pct_vs_python": -1.0390205235904393,
+   "matlab_trip_energy_err_median_pct": 7.10610092999205,
+   "python_trip_energy_err_median_pct": 6.72768482053857,
+   "matlab_fit_s": 121.7215993,
+   "python_fit_s": 3.2756595611572266,
+   "same_algorithm": false
+  }
+ ],
+ "prereg_verdicts": {
+  "ridge_resid": {
+   "rule": "MATLAB RMSE within 0.5% of Python",
+   "diff_pct": -4.518607710224387e-12,
+   "verdict": "PASS"
+  },
+  "ridge_pure": {
+   "rule": "MATLAB RMSE within 0.5% of Python",
+   "diff_pct": 3.9745984281580604e-12,
+   "verdict": "PASS"
+  }
+ },
+ "notes": [
+  "Ridge, KNN and SVR are the same algorithm and the same data/subsets as Python; only Ridge had a pass/fail rule.",
+  "MATLAB LSBoost (fitrensemble) is NOT LightGBM: different algorithm (no histogram binning, no L2 leaf penalty, column sampling per split); a difference is expected.",
+  "Fit times are on the MATLAB laptop, not comparable with the browser."
+ ],
+ "figures": [
+  "figures/matlab/ml_rmse.png",
+  "figures/matlab/ml_pred_trip.png"
+ ]
+}

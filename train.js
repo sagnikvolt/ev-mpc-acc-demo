@@ -4,14 +4,16 @@
 $('size').oninput = updSize; function updSize() { const n = SIZES[+$('size').value]; $('sizev').textContent = n ? `About ${n.toLocaleString()} samples (whole trips)` : 'All training samples (about 165,000, 54 trips)'; } updSize();
 READY.push(() => { $('train').disabled = false; setTChip('idle', 'Idle'); });
 const TNAMES = { ridge: 'Ridge', knn: 'KNN (k=25, 70k-row subsample)', svr: 'SVR (RBF, 8k subset)', lgbm: 'LightGBM (400 trees)' }, TSHORT = { ridge: 'Ridge', knn: 'KNN', svr: 'SVR', lgbm: 'LightGBM' }, TMODE = { resid: 'physics + ML residual', pure: 'pure ML (no physics)' };
-const TTABS = ['imp', 'curve', 'table', 'runs'], RUNS = []; let mlSeen = false, bmwSeen = false, tRunning = false, tLast = null;
+const TTABS = ['imp', 'curve', 'table', 'runs', 'ml'], RUNS = []; let mlSeen = false, bmwSeen = false, tRunning = false, tLast = null;
 const TRAIN_CTRL = '.rail input, .rail select, .rail .alt';
 function lockTrain(v) { document.querySelectorAll(TRAIN_CTRL).forEach(e => { e.disabled = v; }); }
 function activateTTab(k, focus) { TTABS.forEach(t => { const on = t === k, b = $('ttab-' + t); b.setAttribute('aria-selected', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; $('tpn-' + t).hidden = !on; }); if (focus) $('ttab-' + k).focus(); if (k === 'curve' && tLast) drawCurve(); }
 TTABS.forEach((t, i) => {
   $('ttab-' + t).onclick = () => activateTTab(t, false);
-  $('ttab-' + t).onkeydown = e => { const j = e.key === 'ArrowRight' ? (i + 1) % 4 : e.key === 'ArrowLeft' ? (i + 3) % 4 : e.key === 'Home' ? 0 : e.key === 'End' ? 3 : -1; if (j >= 0) { e.preventDefault(); activateTTab(TTABS[j], true); } };
+  $('ttab-' + t).onkeydown = e => { const nT = TTABS.length, j = e.key === 'ArrowRight' ? (i + 1) % nT : e.key === 'ArrowLeft' ? (i + nT - 1) % nT : e.key === 'Home' ? 0 : e.key === 'End' ? nT - 1 : -1; if (j >= 0) { e.preventDefault(); activateTTab(TTABS[j], true); } };
 });
+let MLM = null, bmwInfo = null; if (DESKTOP) fetch('/data/matlab_ml.json?v=20261114k').then(r => r.ok ? r.json() : null).then(d => { MLM = d; }).catch(() => { MLM = null; });
+const MLMAP = { ridge: 'ridge', knn: 'knn', svr: 'svr', lgbm: 'lsboost' };
 function resetTiles() { ['tt1', 'tt2', 'tt3', 'tt4'].forEach(i => { $(i).textContent = '-'; }); $('tt1s').textContent = 'kW, fold 0 (14 unseen trips)'; $('tt2s').textContent = 'median absolute, over the 14 held-out trips'; $('tt3s').textContent = 'kW, fold 0 (from the paper\'s stored results)'; $('tt4s').textContent = 'seconds, nothing sent to a server'; }
 function tSteps(imp) {
   const rows = [['pk', 'Load ML packages'], ['dt', 'Load BMW i3 data'], ['fit', 'Train the model'], ['ev', imp ? 'Test + importance' : 'Test on fold 0']];
@@ -22,10 +24,18 @@ async function runTrain() {
   const model = $('model').value, mode = $('tmode').value, n = SIZES[+$('size').value], imp = $('imp').checked, st = $('tstatus');
   $('tqd').hidden = false; $('tqd').open = true; $('tqsum').textContent = 'Training'; tRunning = true; lockTrain(true); $('train').disabled = true; $('texport').disabled = true; st.textContent = ''; resetTiles(); tSteps(imp); tLast = null;
   $('tout').style.display = 'none'; $('tempty').hidden = false; $('tempty-p').textContent = 'Training in your browser. The result appears here when it finishes.';
+  const MEXP = { lgbm: 'LightGBM builds 400 small decision trees one after another, each correcting the errors of the trees before it.', ridge: 'Ridge fits one straight-line formula to the inputs, with a penalty on large weights.', knn: 'KNN keeps a random 70,000-row sample of the training rows; to predict, it finds the 25 most similar moments for every test row and averages them.', svr: 'SVR fits a smooth curve (RBF kernel) through a random sample of 8,000 training rows.' };
+  const TE = mode === 'resid' ? 'The target is what the physics model misses (measured minus physics power); the prediction adds the physics power back.' : 'No physics input: the model predicts battery power directly.';
+  Proc.start('Training on your device', [
+    { k: 'pk', name: 'Load scikit-learn and LightGBM', text: 'The machine-learning packages are downloaded into the browser\'s Python the first time, then kept for this visit.' },
+    { k: 'dt', name: 'Load the BMW i3 data', text: 'The measured BMW i3 trips (about 8 MB) are read into memory and split by trip: folds 1 to 4 train, the 14 trips of fold 0 are held out.' },
+    { k: 'fit', name: 'Build features, fit, test' + (imp ? ', importance' : ''), text: `One Python call. Inside it, in this order: (1) build the inputs (speed, acceleration, lags, cabin heating, physics wheel power) and the target; (2) fit the model on ${n ? 'about ' + n.toLocaleString('en-US') : 'all'} training samples. ${MEXP[model]} ${TE} (3) predict the 14 unseen trips and score them${imp ? '; (4) shuffle one input group at a time and measure how much the error grows (permutation importance)' : ''}. The worker reports the split of the time when the call ends.` },
+    { k: 'cmp', name: 'Compare with the paper', text: 'Your numbers are put beside the paper\'s stored fold-0 values for the same model and target.' }]);
+  Proc.log(`${TNAMES[model]}, ${TMODE[mode]}, ${n ? 'about ' + n.toLocaleString('en-US') + ' samples' : 'all training samples'}${imp ? ', with importance' : ''}`);
   const t0 = performance.now(); let cur = null, curT = t0; const durs = {};
   const phase = (k, chip) => { const now = performance.now(); if (cur) { durs[cur] = (now - curT) / 1000; tq(cur, 'done', durs[cur].toFixed(1) + ' s'); } cur = k; curT = now; if (k) { tq(k, 'run', 'running'); setTChip(chip[0], chip[1]); } };
-  if (mlSeen) tq('pk', 'done', 'cached'); if (bmwSeen) tq('dt', 'done', 'cached');
-  progressSink = (f, m) => { if (/^Loading scikit/.test(m)) phase('pk', ['loading', 'Loading ML packages']); else if (/^Loading BMW/.test(m)) phase('dt', ['loading', 'Loading BMW i3 data']); else if (/^Training/.test(m)) phase('fit', ['running', 'Training']); };
+  if (mlSeen) { tq('pk', 'done', 'cached'); Proc.stage('pk', 'done', 'cached'); } if (bmwSeen) { tq('dt', 'done', 'cached'); Proc.stage('dt', 'done', 'cached'); }
+  progressSink = (f, m) => { if (/^Loading scikit/.test(m)) { phase('pk', ['loading', 'Loading ML packages']); Proc.stage('pk', 'run'); } else if (/^Loading BMW/.test(m)) { phase('dt', ['loading', 'Loading BMW i3 data']); Proc.stage('dt', 'run'); } else if (/^Training/.test(m)) { phase('fit', ['running', 'Training']); Proc.stage('fit', 'run'); } };
   setTChip('running', 'Starting');
   try {
     const m = await call({ cmd: 'train', model, mode, n_target: n, importance: imp }), r = m.res, now = performance.now();
@@ -34,9 +44,13 @@ async function runTrain() {
     tq('pk', 'done', durs.pk !== undefined ? durs.pk.toFixed(1) + ' s' : 'cached'); tq('dt', 'done', durs.dt !== undefined ? durs.dt.toFixed(1) + ' s' : 'cached');
     tq('fit', 'done', r.train_s.toFixed(1) + ' s'); tq('ev', 'done', Math.max(0, r.total_s - r.train_s).toFixed(1) + ' s');
     mlSeen = true; bmwSeen = true; const secs = (now - t0) / 1000;
+    if (r.data_info) { bmwInfo = r.data_info; Proc.log(`BMW i3 data: ${bmwInfo.n_train.toLocaleString('en-US')} training rows from ${bmwInfo.n_trips_train} trips, ${bmwInfo.n_test.toLocaleString('en-US')} held-out rows from ${bmwInfo.n_trips_test} trips`); Proc.note('dt', bmwInfo.n_train.toLocaleString('en-US') + ' rows from ' + bmwInfo.n_trips_train + ' training trips and ' + bmwInfo.n_test.toLocaleString('en-US') + ' rows from ' + bmwInfo.n_trips_test + ' held-out trips.'); }
+    Proc.stage('dt', 'done', durs.dt !== undefined ? durs.dt.toFixed(1) + ' s' : 'cached'); Proc.stage('fit', 'done', r.total_s.toFixed(1) + ' s');
+    Proc.note('fit', `<b>Worker's split:</b> build inputs and fit ${r.train_s.toFixed(1)} s; test${imp ? ' and importance' : ''} ${(r.total_s - r.train_s).toFixed(1)} s${r.importance ? `; importance over ${Object.keys(r.importance).length} input groups with ${model === 'lgbm' ? '3 repeats on all held-out rows' : '2 repeats on 5,000 held-out rows'}` : ''}.`);
+    Proc.stage('cmp', 'done', 'ready'); Proc.finish(true);
     st.innerHTML = `Computed on your device in <span class="ro">${secs.toFixed(1)} s</span> Nothing was sent to a server`; setTChip('done', `Done in ${secs.toFixed(1)} s`); $('tqsum').textContent = `Last run: ${secs.toFixed(1)} s`; $('tqd').open = false;
     renderTrain(r, model, mode, n, secs, imp);
-  } catch (e) { st.innerHTML = `<span class="err">${e.message.split('\n').filter(Boolean).pop()}</span>`; if (cur) tq(cur, 'err', 'error'); setTChip('error', 'Error'); $('tqsum').textContent = 'Run failed'; $('tqd').open = true; $('tempty-p').textContent = 'The run did not finish. See the message under the steps in the settings.'; }
+  } catch (e) { st.innerHTML = `<span class="err">${e.message.split('\n').filter(Boolean).pop()}</span>`; if (cur) tq(cur, 'err', 'error'); Proc.fail(e.message.split('\n').filter(Boolean).pop()); setTChip('error', 'Error'); $('tqsum').textContent = 'Run failed'; $('tqd').open = true; $('tempty-p').textContent = 'The run did not finish. See the message under the steps in the settings.'; }
   progressSink = null; if (readyInfo) $('lmsg').textContent = 'Engine ready · ' + readyInfo.secs.toFixed(1) + ' s on your device'; tRunning = false; lockTrain(false); $('train').disabled = false; $('texport').disabled = RUNS.length === 0;
 }
 $('train').onclick = runTrain;
@@ -84,7 +98,23 @@ function renderTrain(r, model, mode, n, secs, imp) {
   let rh = '<table style="min-width:0"><tr><th>#</th><th>Model</th><th>Target</th><th>Training samples / trips</th><th>Power RMSE (kW)</th><th>Paper (kW)</th><th>Trip-energy error, median |e|</th><th>Pooled</th><th>Time (s)</th></tr>';
   RUNS.forEach(x => { rh += `<tr${x === RUNS[RUNS.length - 1] ? ' class="hl"' : ''}><td>${x.k}</td><td>${TSHORT[x.model]}</td><td>${x.mode === 'resid' ? 'physics + residual' : 'pure ML'}</td><td>${x.r.n_train.toLocaleString()} / ${x.r.n_trips}</td><td>${x.r.rmse_kw === best ? '<strong>' + x.r.rmse_kw.toFixed(3) + '</strong>' : x.r.rmse_kw.toFixed(3)}</td><td>${x.p ? x.p.rmse_kw.toFixed(3) : dash}</td><td>${x.r.trip_med_abs.toFixed(2)}%</td><td>${sgn(x.r.pooled_err)}</td><td>${x.secs.toFixed(1)}</td></tr>`; });
   $('truns').innerHTML = rh + '</table>'; $('texport').disabled = false;
+  renderMatlab(r, model, mode, n, p);
   activateTTab('table', false); window.__lastTrain = r;
+}
+function renderMatlab(r, model, mode, n, p) {
+  const el = $('tml'), row = MLM && MLM.rows.find(x => x.model === MLMAP[model] && x.mode === mode), mp = '<p class="lim mut" style="max-width:46rem">See the <a href="/matlab/#ch-6">MATLAB page</a> for how the MATLAB models were set up and checked.</p>';
+  if (!MLM || !row) { el.innerHTML = '<div class="empty" style="padding:24px 8px">The MATLAB results could not be loaded.</div>'; return; }
+  if (n !== 0) { el.innerHTML = `<div class="empty" style="padding:24px 8px"><p><b>MATLAB ran full data only.</b> Your run used about ${r.n_train.toLocaleString('en-US')} training samples; MATLAB trained on ${MLM.n_train.toLocaleString('en-US')}. Set <i>Amount of data</i> to the last step and train again to compare.</p></div>` + mp; return; }
+  const same = row.same_algorithm, dm = dpct(r.rmse_kw, row.matlab_rmse_kw), mname = same ? TSHORT[model] : 'LSBoost', pdiff = p ? dpct(row.matlab_rmse_kw, p.rmse_kw) : '-';
+  let h = `<div class="lim mut" style="margin-bottom:10px;max-width:46rem">MATLAB R2024b (Statistics and Machine Learning Toolbox) fitted ${same ? 'the same model' : '<b>LSBoost, a gradient-boosting model that is not the same algorithm as LightGBM</b> (a difference is expected)'} on the same fold-0 split and features. It ran the full data only.</div>`;
+  h += `<table style="min-width:0"><tr><th></th><th>Your browser</th><th>MATLAB (${mname})</th><th>Paper (fold 0)</th></tr><tr><td>Model, target</td><td colspan="3" style="text-align:left">${TNAMES[model]}, ${TMODE[mode]}</td></tr>`;
+  h += `<tr class="hl"><td>Held-out power RMSE (kW)</td><td><strong>${r.rmse_kw.toFixed(3)}</strong></td><td><strong>${row.matlab_rmse_kw.toFixed(3)}</strong></td><td>${p ? p.rmse_kw.toFixed(3) : '-'}</td></tr>`;
+  h += `<tr><td>Yours vs MATLAB</td><td colspan="3" style="text-align:left">${dm}${same ? '' : ' (different algorithms, so this gap is expected)'}</td></tr><tr><td>MATLAB vs paper</td><td colspan="3" style="text-align:left">${pdiff}</td></tr>`;
+  h += `<tr><td>Trip-energy error: median |error| over 14 trips</td><td>${r.trip_med_abs.toFixed(2)}%</td><td>${row.matlab_trip_energy_err_median_pct.toFixed(2)}%</td><td>${p && p.kind === 'full' ? p.trip_med_abs.toFixed(2) + '%' : '-'}</td></tr></table>`;
+  if (model === 'ridge') { const v = MLM.prereg_verdicts['ridge_' + mode]; if (v) h += `<p class="lim" style="margin-top:10px">Pre-registered rule for Ridge, written before the MATLAB run: ${v.rule}. Result: <b>${v.verdict}</b> (${Math.abs(v.diff_pct) < 0.005 ? '0.00%' : v.diff_pct.toFixed(2) + '%'}).</p>`; }
+  if (mode === 'resid') h += `<figure class="mlfig"><button type="button" class="gal-b" id="mlfig-b" aria-label="Enlarge the MATLAB figure"><img src="/figures/matlab/ml_pred_trip.png?v=20261114k" alt="Line chart of battery power in kW over about 1,100 s of one held-out trip: measured power, the Python LightGBM prediction and the MATLAB LSBoost prediction follow each other closely" loading="lazy"></button><figcaption class="lim mut">One held-out trip (number 52): measured power, Python LightGBM and MATLAB LSBoost, physics + residual. Made by MATLAB with exportgraphics. Click to enlarge.</figcaption></figure>`;
+  el.innerHTML = h + mp;
+  const b = $('mlfig-b'); if (b) b.onclick = () => EVLB.open([{ src: '/figures/matlab/ml_pred_trip.png?v=20261114k', alt: b.querySelector('img').alt, cap: 'Held-out trip 52 (median length): measured battery power, Python LightGBM and MATLAB LSBoost predictions, physics + residual. Made by MATLAB R2024b with exportgraphics.' }], 0);
 }
 function drawCurve() {
   const el = $('tcurve'), L = tLast; if (!L || !MLREF) return; const { r, model, mode, n } = L;

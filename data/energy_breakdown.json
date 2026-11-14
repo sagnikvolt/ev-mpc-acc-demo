@@ -1,0 +1,49 @@
+{
+ "win": 33,
+ "idx": 33,
+ "campaign": "Cherasco",
+ "vehicle": "Hyundai(Ioniqhybrid)",
+ "eta": 0.65,
+ "cap_kw": 35.0,
+ "M": 1270.0,
+ "CRR": 0.010238699150893905,
+ "CDA": 0.46642805907271473,
+ "RHO": 1.2,
+ "c1": 1.4313642683568977,
+ "B0_W": 110.31944992778661,
+ "recorded": {
+  "inertia": 55.03864839028264,
+  "rolling": 16.97475382087543,
+  "air": 6.76138314386142,
+  "losses": 33.98062765047289,
+  "aux": 3.202328477070473,
+  "regen_returned": -30.61112871672768,
+  "E_total": 85.34661276583518,
+  "brake_wheel_Wh": 48.164551936141905,
+  "dist_m": 829.9853344085227,
+  "dke_Wh": -9.599622897662583,
+  "ke_corr_Wh": 8.639660607896325,
+  "whkm_adj": 113.2384747987258
+ },
+ "mpc": {
+  "inertia": 61.536070837229474,
+  "rolling": 18.528238840527763,
+  "air": 7.664995309368019,
+  "losses": 37.84328746015663,
+  "aux": 3.202328477070473,
+  "regen_returned": -22.64614690063339,
+  "E_total": 106.12877402371898,
+  "brake_wheel_Wh": 36.06739405564914,
+  "dist_m": 887.845859891657,
+  "dke_Wh": 8.119045012295985,
+  "ke_corr_Wh": -7.307140511066386,
+  "whkm_adj": 111.30494377110877
+ },
+ "whkm_check": {
+  "recorded_replay": 113.2384747987258,
+  "mpc_run_arm": 111.30494377110853,
+  "stored_rec": 113.23847480268778,
+  "stored_mpc": 111.09436367833854
+ },
+ "source": "demo_v2/energy_breakdown.py: terms of python/mpc_acc.py (pw_kw, pb_kw) summed over 0.1 s steps of the median commercial-ACC window; speeds as in demo_v2/py/demo_core.py"
+}
