@@ -15,8 +15,8 @@
     const n = arr.length, i0 = clamp(Math.floor(f), 0, n - 1), i1 = Math.min(i0 + 1, n - 1), a = arr[i0], b = arr[i1], u = clamp(f - i0, 0, 1);
     if (fin(a) && fin(b)) return a + (b - a) * u; return fin(a) ? a : (fin(b) ? b : null);
   }
-  function colors() {
-    const s = getComputedStyle(document.documentElement), g = n => s.getPropertyValue(n).trim();
+  function colors(el) {
+    const s = getComputedStyle(el || document.documentElement), g = n => s.getPropertyValue(n).trim();
     return { text: g('--text'), text2: g('--text2'), text3: g('--text3'), raised: g('--raised'), card: g('--card'), accent: g('--accent'), line2: g('--line2'), mono: g('--mono') || 'ui-monospace,monospace' };
   }
 
@@ -24,7 +24,7 @@
     constructor(host, o) {
       o = o || {}; this.id = o.id || 'rv' + (++uid); this.scope = o.scope || this.id; this.h = o.height || 120; this.loop = !!o.loop; this.multi = !!o.multi; this.mult = o.speed || 10;
       this.t = 0; this.playing = false; this.data = null; this.vis = true; this.W = 0; this.dpr = 1; this.raf = 0; this.last = 0; this.hold = 0; this.lastIdx = -1; this.hover = null;
-      this.st = { n: 0, sum: 0, max: 0 }; this.col = colors();
+      this.st = { n: 0, sum: 0, max: 0 }; this.col = colors(host);
       host.classList.add('rv');
       host.innerHTML = `<div class="rv-cv" style="height:${this.h}px"><canvas role="img" aria-label="Side view of the lead car, the recorded follower and our car, replayed at the chosen speed"></canvas></div>` +
         `<div class="rv-ctl"><button type="button" class="rv-play" aria-label="Play">${icon('play')}</button>` +
@@ -42,7 +42,7 @@
       window.addEventListener('ev:scrub', e => this.onScrub(e.detail || {}));
       ALL.push(this);
     }
-    recolor() { this.col = colors(); this.draw(); }
+    recolor() { this.col = colors(this.host); this.draw(); }
     /* d = { t, lead, ego: {name, accent, v, gap, wh|null}, rec: {v, gap, wh|null} | null } */
     setData(d, o) {
       if (this.multi) return this.setDataMulti(d, o);
