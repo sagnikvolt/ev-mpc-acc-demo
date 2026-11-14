@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Train it yourself - EV battery-aware ACC</title>
+<meta name="description" content="Train a battery-power model on the BMW i3 data in your browser and compare it with the paper.">
+<meta name="color-scheme" content="dark light">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/styles.css?v=20261114f">
+
+</head><body class="app" data-page="train" data-engine="1">
+<a class="skip" href="#main">Skip to content</a>
+<header class="nav"><div class="wrap">
+<a class="brand" href="/">EV battery-aware ACC<span>open research demo</span></a>
+<nav class="links" aria-label="Pages"><a href="/results/">Results</a><a href="/run/">Run it</a><a href="/train/" aria-current="page">Train it</a><a href="/matlab/">MATLAB check</a><a href="/code/">Code</a><a href="/about/">About</a></nav>
+<a class="gh" href="https://github.com/sagnikvolt/ev-mpc-acc" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>GitHub</a>
+</div></header>
+<noscript><p class="err wrap">This page needs JavaScript (it runs Python in WebAssembly)</p></noscript>
+<main class="wb app-ws" id="main" data-ws="trainwb">
+<aside class="rail" aria-label="Training settings">
+<div class="rail-head"><span class="rail-t">Training settings</span><span class="chip" id="tchip" data-s="idle" role="status" aria-live="polite"><i aria-hidden="true"></i><span id="tchiptxt">Idle</span></span></div>
+<div id="loadbox" role="status"><div id="lmsg">Loading the engine… (first visit downloads ~30 MB)</div><div class="bar"><div id="lbar"></div></div></div>
+<div class="rail-body" tabindex="0" role="region" aria-label="Training settings, scrollable">
+<div class="rg"><div class="rgl">Model</div>
+<label class="field"><span class="fl">Model</span><select id="model"><option value="lgbm">LightGBM (400 trees)</option><option value="ridge">Ridge</option><option value="knn">KNN (k=25)</option><option value="svr">SVR (RBF, 8,000-sample subset)</option></select></label>
+<label class="field"><span class="fl">Target</span><select id="tmode"><option value="resid">physics + ML residual</option><option value="pure">pure ML (no physics)</option></select></label></div>
+<div class="rg"><div class="rgl">Training data</div>
+<label class="field"><span class="fl">Amount of data</span><span class="rng"><input type="range" id="size" min="0" max="4" step="1" value="4"></span></label>
+<div class="lim mut" id="sizev"></div></div>
+<div class="rg"><div class="rgl">Extras</div>
+<label class="check"><input type="checkbox" id="imp" checked><span>Also compute grouped permutation importance</span></label>
+<div class="lim mut">Adds about a minute for LightGBM and KNN, longer on a slower computer.</div></div>
+</div>
+<div class="rail-foot">
+<details class="qd" id="tqd" hidden><summary id="tqsum">Steps</summary><div id="tstatus" class="lim mut"></div><ol class="queue" id="tqueue" aria-label="Training steps"></ol></details>
+<button id="train" class="runbtn" disabled>Train on my device</button></div>
+</aside>
+<div class="stage" tabindex="0" role="region" aria-label="Training results, scrollable">
+<div class="stage-title"><h1 class="pt">Train it yourself</h1><p class="intro">Train a battery-power model on the BMW i3 data in your browser and compare it with the paper's. As in the paper's fold 0, the model learns from the trips of folds 1 to 4 and is tested on the 14 trips of fold 0 that it never saw.</p></div>
+<div class="tiles" id="ttiles">
+<div class="tile ours"><div class="tl">Held-out power RMSE</div><div class="tv" id="tt1">-</div><div class="ts" id="tt1s">kW, fold 0 (14 unseen trips)</div></div>
+<div class="tile"><div class="tl">Trip-energy error</div><div class="tv" id="tt2">-</div><div class="ts" id="tt2s">median absolute, over the 14 held-out trips</div></div>
+<div class="tile"><div class="tl">Paper, same setting</div><div class="tv" id="tt3">-</div><div class="ts" id="tt3s">kW, fold 0 (from the paper's stored results)</div></div>
+<div class="tile"><div class="tl">Computed on your device</div><div class="tv" id="tt4">-</div><div class="ts" id="tt4s">seconds, nothing sent to a server</div></div>
+</div>
+<div class="card tabcard">
+<div class="tabbar"><div class="tabs" role="tablist" aria-label="Training result views">
+<button type="button" role="tab" id="ttab-imp" aria-controls="tpn-imp" aria-selected="false" tabindex="-1">Importance</button>
+<button type="button" role="tab" id="ttab-curve" aria-controls="tpn-curve" aria-selected="false" tabindex="-1">Learning curve</button>
+<button type="button" role="tab" id="ttab-table" aria-controls="tpn-table" aria-selected="true" tabindex="0">Table</button>
+<button type="button" role="tab" id="ttab-runs" aria-controls="tpn-runs" aria-selected="false" tabindex="-1">Runs</button></div>
+<button type="button" class="alt sm" id="texport" disabled>Export runs as CSV</button></div>
+<div id="tempty" class="empty"><svg class="sk" viewBox="0 0 360 56" aria-hidden="true" focusable="false"><rect x="1" y="1" width="250" height="10" rx="3"/><rect x="1" y="23" width="170" height="10" rx="3"/><rect x="1" y="45" width="110" height="10" rx="3"/></svg><p id="tempty-p">Press train. Your result against the paper's appears here (trained on folds 1 to 4, tested on 14 unseen trips of fold 0).</p></div>
+<div id="tout" class="out" style="display:none">
+<div role="tabpanel" id="tpn-imp" aria-labelledby="ttab-imp" tabindex="0" hidden><div id="timp"></div></div>
+<div role="tabpanel" id="tpn-curve" aria-labelledby="ttab-curve" tabindex="0" hidden><div id="tcurve" class="chartbox chart"></div><div class="lim mut" id="tcurvenote" style="margin-top:12px"></div></div>
+<div role="tabpanel" id="tpn-table" aria-labelledby="ttab-table" tabindex="0"><div id="tres" class="tw"></div><div class="lim mut" id="tnote2" style="margin-top:12px"></div></div>
+<div role="tabpanel" id="tpn-runs" aria-labelledby="ttab-runs" tabindex="0" hidden><div id="truns" class="tw"></div><div class="lim mut" style="margin-top:12px">Runs of this visit only; they are not stored anywhere and are lost when you close the page.</div></div>
+</div></div>
+<div class="lim mut stage-note">Pick how much data to use (whole trips), the model, and whether it learns on top of the physics model (the residual) or without it. Deep-learning models (BiLSTM) and the RL controllers are not trained here: they take hours.<br>The MATLAB check covers the simulator and controllers, not the ML models. <a href="/matlab/">Compare with MATLAB</a><br>Paper (fold 0) values come from the same code run on the authors' machine (results/ml/*.json, learning_curve and importance CSVs). The first time you train, scikit-learn and LightGBM are downloaded. Same seeds and settings as the paper's scripts, so LightGBM on all data should reproduce the paper's fold-0 error almost exactly.</div>
+<footer><p>Car-following data: OpenACC, European Commission Joint Research Centre (JRC), used with acknowledgement. Battery data: BMW i3 measurements, Technical University of Munich, licence CC BY 4.0. Code: MIT licence, github.com/sagnikvolt/ev-mpc-acc, Zenodo DOI 10.5281/zenodo.24186267.</p><p>Python runs in your browser through Pyodide, loaded from the jsDelivr CDN; the typefaces (IBM Plex) load from Google Fonts. No cookies, no analytics, and none of your data is sent anywhere.</p><p>Design pass guided by unslop by Damir Sokolovsky (CC BY 4.0)</p></footer>
+</div>
+</main>
+
+
+<script src="/common.js?v=20261114f"></script>
+<script src="/train.js?v=20261114f"></script>
+</body></html>

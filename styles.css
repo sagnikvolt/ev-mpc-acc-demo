@@ -204,11 +204,8 @@ h1{font-size:2.125rem}.lead{font-size:16px;line-height:24px}
 .gate{margin-top:24px;padding:20px 24px;border:1px solid var(--line);border-radius:16px;background:var(--card);box-shadow:var(--shadow)}
 .gate h3{margin:0 0 8px}.gate p{margin:0;font-size:14px;line-height:22px;color:var(--text2);max-width:46rem}
 
-/* Run it v3: workbench (rail + stage) */
+/* workbench (rail + stage) */
 [hidden]{display:none!important}
-.wb{display:grid;grid-template-columns:minmax(0,1fr);gap:24px;margin-top:24px;align-items:start}
-.rail{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow);min-width:0}
-@media(min-width:1100px){.wb{grid-template-columns:320px minmax(0,1fr)}.rail{position:sticky;top:72px;max-height:calc(100vh - 88px);overflow-y:auto}}
 .rail-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
 .rail-t{font:500 15px/20px var(--sans)}
 .chip{display:inline-flex;align-items:center;gap:8px;height:24px;padding:0 8px;border:1px solid var(--line2);border-radius:6px;font:400 12px/16px var(--mono);color:var(--text2);white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -228,12 +225,11 @@ button.sm{height:32px;padding:0 12px;font-size:13px}
 .rail .rng{gap:12px}.rail .rng input[type=range]{flex:1 1 auto;width:auto;min-width:0}.rail .rng .val{min-width:5ch;text-align:right}
 .linkbtn,.linkbtn:hover:not(:disabled){display:inline;height:auto;padding:0;border:0;background:none;color:var(--accent);font:inherit;text-decoration:underline;text-underline-offset:3px;border-radius:2px}
 .linkbtn:hover:not(:disabled){color:var(--accent-hover)}.linkbtn:disabled{opacity:.45}
-.runbtn{width:100%;height:44px;margin:12px 0 8px;position:sticky;bottom:0;z-index:2;box-shadow:0 0 0 8px var(--card)}
+.runbtn{width:100%;height:44px;margin:0}
 .queue{list-style:none;margin:8px 0;padding:0;font:400 12px/16px var(--mono)}
 .queue li{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:8px;align-items:center;padding:4px 0;color:var(--text3)}
 .queue .qn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.queue .qt{font-variant-numeric:tabular-nums}
 .queue li[data-s=run]{color:var(--text)}.queue li[data-s=run] .qt{color:var(--accent)}.queue li[data-s=done]{color:var(--text2)}.queue li[data-s=done] .qt{color:var(--text)}.queue li[data-s=err] .qt{color:var(--bad)}
-#status{margin-top:8px}
 .stage{display:flex;flex-direction:column;gap:16px;min-width:0}
 .rvcard{padding:16px}.rvcard .rv-ctl{margin-top:8px}.rvcap{margin-top:8px}
 .rv-empty{display:flex;align-items:center;justify-content:center;min-height:140px;padding:24px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--text2);font-size:14px;text-align:center}
@@ -258,14 +254,12 @@ button.sm{height:32px;padding:0 12px;font-size:13px}
 @media(max-width:1099px){.rail .arms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.rail .sliders2{display:block}}
 
 /* v3 review fixes */
-.rail{scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
-@media(min-width:1100px){.rail{max-height:calc(100vh - 80px)}}
-.queue{margin:8px 0 4px}#status{margin:4px 0 0}.runbtn{margin:8px 0 0;bottom:-4px}
+.queue{margin:4px 0 4px}
 
 /* Train it v3 + Compare with MATLAB */
 .queue .qk{font-variant-numeric:tabular-nums;text-align:center;color:inherit}
-#trainwb .rail .lim{margin:0 0 8px}#trainwb .rail .check{margin:0 0 6px}
-#trainwb .rail .rg:last-of-type{padding-bottom:4px}
+.rail .lim{margin:0 0 8px}.rail .check{margin:0 0 6px}
+.rail .rg:last-of-type{padding-bottom:4px}
 #tres td:first-child{min-width:200px}#tres td:not(:first-child){white-space:nowrap}
 #truns td{white-space:nowrap}
 #tpn-imp .empty{padding:24px 8px}
@@ -296,9 +290,6 @@ button.sm{height:32px;padding:0 12px;font-size:13px}
 
 /* MATLAB inline, UI polish, Code section */
 /* sticky rail footer: solid band, nothing shows through below the button */
-.runbtn{position:static;box-shadow:none;margin:0;width:100%}
-.rail-foot{position:sticky;bottom:-16px;z-index:2;margin:8px -16px -16px;padding:12px 16px 16px;background:var(--card);border-top:1px solid var(--line);border-radius:0 0 16px 16px}
-@media(max-width:1099px){.rail-foot{position:static;margin:8px 0 0;padding:0;border:0}}
 /* compact empty states */
 .empty{padding:20px 8px 16px;font-size:13px;line-height:20px}
 .empty p{margin:8px 0 0}
@@ -350,3 +341,71 @@ button.sm{height:32px;padding:0 12px;font-size:13px}
 .cv{grid-template-columns:264px minmax(0,1fr)}
 @media(max-width:899px){.cv{grid-template-columns:minmax(0,1fr)}}
 .cv-f{font-size:12px}.cv-fn{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ===================== multi-page site ===================== */
+.skip{position:absolute;left:8px;top:-48px;z-index:30;padding:8px 12px;border-radius:8px;background:var(--card);border:1px solid var(--line2);color:var(--text)}.skip:focus{top:8px}
+.links a[aria-current=page]{color:var(--text);background:var(--raised);box-shadow:inset 0 -2px 0 var(--accent)}
+.page{padding-top:40px}
+h1.pt{font:500 clamp(1.5rem,1.2vw + 1.1rem,2rem)/1.15 var(--sans);letter-spacing:-.01em;margin:0 0 12px}
+h2.sub{font:500 20px/28px var(--sans);letter-spacing:0;margin:40px 0 12px}
+.page>.intro,.stage-title .intro{margin-bottom:32px}
+.page>section:first-of-type h2.sub{margin-top:8px}
+.page .stats{margin:0 0 16px}
+/* home */
+.home-sec{padding-top:56px}.home-sec h2{margin-bottom:20px}
+.hgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px}
+.hcard{display:flex;flex-direction:column;gap:8px;padding:20px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);color:var(--text);transition:border-color 150ms var(--ease),background-color 150ms var(--ease)}
+.hcard:hover{border-color:var(--text3);text-decoration:none;color:var(--text)}
+.hcard h3{margin:0;font:500 16px/24px var(--sans)}
+.hcard p{margin:0;font-size:13px;line-height:20px;color:var(--text2);flex:1 1 auto}
+.hcard .hv{font:500 24px/32px var(--mono);font-variant-numeric:tabular-nums;color:var(--accent);margin-top:8px}
+.hcard .hc{font-size:12px;line-height:18px;color:var(--text3)}
+.how{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;counter-reset:how}
+.how li{counter-increment:how;padding:16px 20px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:14px;line-height:22px;color:var(--text2)}
+.how li::before{content:counter(how);display:block;font:500 12px/16px var(--mono);color:var(--text3);margin-bottom:6px}
+.how strong{color:var(--text)}
+@media(max-width:1100px){.hgrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:900px){.hgrid{grid-template-columns:repeat(2,minmax(0,1fr))}.how{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:560px){.hgrid{grid-template-columns:minmax(0,1fr)}}
+/* app pages: /run/ and /train/ */
+.app-ws{display:block;margin:0}
+.rail{background:var(--card);border:1px solid var(--line);border-radius:16px;margin:24px 32px 0;min-width:0}
+.rail-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0;padding:12px 16px;border-bottom:1px solid var(--line)}
+.rail-body{padding:0 16px 8px}
+.rail-foot{padding:12px 16px 16px;border-top:1px solid var(--line);background:var(--card);border-radius:0 0 16px 16px}
+.rail .rg:first-child{border-top:0}
+.stage{padding:24px 32px 0;gap:16px}
+.stage-title .intro{margin:0 0 4px;max-width:60rem;font-size:14px;line-height:22px}
+.stage-title h1.pt{margin-bottom:6px}
+.stage-note{margin:0;max-width:60rem}
+#loadbox{display:block;min-height:0;padding:8px 16px;border-bottom:1px solid var(--line)}
+#loadbox .bar{flex:none;width:100%;margin-top:6px}
+.qd{margin:0 0 10px}
+.qd>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:28px;font:400 12px/16px var(--mono);color:var(--text2);font-variant-numeric:tabular-nums}
+.qd>summary::-webkit-details-marker{display:none}
+.qd>summary::after{content:"details";font:400 12px var(--mono);color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+.qd[open]>summary::after{content:"hide"}
+.qd .lim{margin:4px 0 0}.qd .queue{max-height:150px;overflow-y:auto;margin:4px 0 0;scrollbar-width:thin}
+.arm .an{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rail .arm{min-width:0}
+.rail .seg label span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(min-width:1100px){
+html:has(body.app:not(.gated)){height:100%}
+body.app:not(.gated){height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+body.app:not(.gated) .nav{flex:none}
+body.app:not(.gated) .nav .wrap{max-width:none}
+body.app:not(.gated) .app-ws{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:340px minmax(0,1fr);overflow:hidden}
+body.app:not(.gated) .rail{display:flex;flex-direction:column;min-height:0;margin:0;border:0;border-right:1px solid var(--line);border-radius:0}
+body.app:not(.gated) .rail-body{flex:1 1 auto;min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
+body.app:not(.gated) .rail-head,body.app:not(.gated) #loadbox,body.app:not(.gated) .rail-foot{flex:none}
+body.app:not(.gated) .rail-foot{border-radius:0}
+body.app:not(.gated) .stage{min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--line2) transparent;padding:20px 28px 0}
+body.app:not(.gated) .stage footer{margin-top:40px}
+body.app:not(.gated) .stage-title .intro{margin-bottom:0}
+}
+@media(max-width:1099px){.stage{padding:24px 32px 0}.rail{margin:24px 32px 0}.app-ws{display:flex;flex-direction:column}}
+@media(max-width:640px){.stage{padding:20px 24px 0}.rail{margin:20px 24px 0}}
+body.gated .app-ws{display:block}
+.stage>*{flex:none}
+.hcard p{flex:none;min-height:60px}.hcard .hc{min-height:54px}
+.qd .queue{max-height:160px}

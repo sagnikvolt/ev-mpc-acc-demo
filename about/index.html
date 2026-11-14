@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>About: limits, credits, privacy - EV battery-aware ACC</title>
+<meta name="description" content="What this demo is and is not, credits for the data and code, and the privacy statement.">
+<meta name="color-scheme" content="dark light">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/styles.css?v=20261114f">
+
+</head><body class="" data-page="about" data-engine="0">
+<a class="skip" href="#main">Skip to content</a>
+<header class="nav"><div class="wrap">
+<a class="brand" href="/">EV battery-aware ACC<span>open research demo</span></a>
+<nav class="links" aria-label="Pages"><a href="/results/">Results</a><a href="/run/">Run it</a><a href="/train/">Train it</a><a href="/matlab/">MATLAB check</a><a href="/code/">Code</a><a href="/about/" aria-current="page">About</a></nav>
+<a class="gh" href="https://github.com/sagnikvolt/ev-mpc-acc" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>GitHub</a>
+</div></header>
+<noscript><p class="err wrap">This page needs JavaScript (it runs Python in WebAssembly)</p></noscript>
+<main class="wrap page" id="main">
+<h1 class="pt">What this is, and what it is not</h1>
+<p class="intro">The limits of this demo, the credits for its data and code, and what happens to your data.</p>
+<section aria-labelledby="h-lim"><h2 class="sub" id="h-lim">Limits</h2>
+<div class="prose lim" style="font-size:15px;line-height:24px">
+<ul>
+<li><strong>Research demo, not a vehicle controller</strong> and not a range estimate for any real trip.</li>
+<li><strong>Replay with our BMW i3 model.</strong> The test windows are recorded speeds of real cars (OpenACC). The controllers drive a simulated car through the lead car's recorded speed; every energy figure, including the recorded followers', is computed with one frozen BMW i3 battery model (1270 kg, regen efficiency and cap as set). Other cars will differ.</li>
+<li><strong>The gaps matter.</strong> The tuned ACC and the SAC controllers save about as much energy as the MPC against recorded cars, but at following gaps of roughly 50 to 59 m, against about 41 m for the MPC and the recorded cars (79 commercial-ACC windows). Only the MPC is compared at the recorded cars' own gap.</li>
+<li><strong>Safe RL is safe but not more efficient.</strong> The safety filter removed every unsafe window, but the retrained safe SAC did not beat the tuned ACC on energy (pre-registered rule not met).</li>
+<li><strong>The oracle is a ceiling.</strong> It knows the lead car's future speed, which no real car does. Learned forecasters did not recover any of that saving on real windows.</li>
+<li><strong>Browser MPC uses Clarabel, the paper used OSQP.</strong> Same optimisation problem and code, different solver; per-window Wh/km can differ from the stored value by up to about 0.2%. ACC, SMC and the numpy version of the SAC actors reproduce the stored values to rounding.</li>
+<li><strong>Speed.</strong> Each MPC controller needs hundreds of small optimisation problems per window; on a laptop expect several seconds each, slower on a phone. The page runs Python in WebAssembly, which is slower than native Python.</li>
+<li><strong>Uploaded traces</strong> are processed on your device and never uploaded. Your trace is not the paper's data, so its numbers are not paper results. The synthetic example is deliberately extreme stop-and-go; do not quote its saving.</li>
+<li>A single trained RL seed (42) is run here; the paper reports three seeds, and seed-to-seed spread is large.</li>
+</ul></div></section>
+<section aria-labelledby="credits"><h2 class="sub" id="credits">Links and credits</h2>
+<div class="prose" style="font-size:15px;line-height:24px">
+<ul>
+<li>Paper: not yet published (link will be added here).</li>
+<li>Code, data and pre-registrations: <a class="ext" href="https://github.com/sagnikvolt/ev-mpc-acc">github.com/sagnikvolt/ev-mpc-acc</a> (MIT licence). The pre-registrations are in the repository's <code>preregistrations</code> folder.</li>
+<li>Archived release (v0.2): Zenodo, DOI <a href="https://doi.org/10.5281/zenodo.24186267">10.5281/zenodo.24186267</a>.</li>
+<li>Car-following data: OpenACC, European Commission Joint Research Centre (JRC), used with acknowledgement. Battery data: BMW i3 measurements, Technical University of Munich, licence CC BY 4.0.</li>
+</ul></div></section>
+<section aria-labelledby="h-priv"><h2 class="sub" id="h-priv">Privacy</h2>
+<div class="prose" style="font-size:15px;line-height:24px"><p>No cookies, no analytics. Simulations and training run in your browser; nothing you upload or type is sent to a server. The page loads Python (Pyodide) from the jsDelivr CDN and the IBM Plex typefaces from Google Fonts, so those two services see an ordinary request for their files.</p></div></section>
+<footer><p>Car-following data: OpenACC, European Commission Joint Research Centre (JRC), used with acknowledgement. Battery data: BMW i3 measurements, Technical University of Munich, licence CC BY 4.0. Code: MIT licence, github.com/sagnikvolt/ev-mpc-acc, Zenodo DOI 10.5281/zenodo.24186267.</p><p>Python runs in your browser through Pyodide, loaded from the jsDelivr CDN; the typefaces (IBM Plex) load from Google Fonts. No cookies, no analytics, and none of your data is sent anywhere.</p><p>Design pass guided by unslop by Damir Sokolovsky (CC BY 4.0)</p></footer>
+</main>
+
+
+
+</body></html>

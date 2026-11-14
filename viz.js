@@ -67,7 +67,7 @@
 
   const HD = dataOf('hero-data'), SD = dataOf('swarm-data');
   let lastW = 0;
-  const draw = () => { const a = $('hero-chart'), b = $('swarm-chart'); if (!a || !b) return; const w = a.clientWidth + '/' + b.clientWidth; if (w === lastW) return; lastW = w; if (HD) hero(a, HD); if (SD) swarm(b, SD); };
+  const draw = () => { const a = $('hero-chart'), b = $('swarm-chart'); if (!a && !b) return; const w = (a ? a.clientWidth : 0) + '/' + (b ? b.clientWidth : 0); if (w === lastW) return; lastW = w; if (a && HD) hero(a, HD); if (b && SD) swarm(b, SD); };
   const sc = $('hero-scrub'); if (sc) sc.dataset.idle = sc.textContent;
   draw(); let tm = 0; window.addEventListener('resize', () => { clearTimeout(tm); tm = setTimeout(draw, 120); });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { lastW = 0; draw(); });
