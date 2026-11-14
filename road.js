@@ -76,12 +76,14 @@
       let n = Math.min(d.t.length, d.lead.length); lanes.forEach(l => { n = Math.min(n, l.v.length, l.gap.length); }); if (rec0) n = Math.min(n, rec0.v.length, rec0.gap.length);
       const dt = d.t[1] - d.t[0], lead = d.lead.slice(0, n), g0 = lanes.length ? lanes[0].gap[0] : (rec0 ? rec0.gap[0] : 30), L = [fin(g0) ? g0 : 30];
       for (let i = 1; i < n; i++) { const a = fin(lead[i - 1]) ? lead[i - 1] : 0, b = fin(lead[i]) ? lead[i] : a; L.push(L[i - 1] + 0.5 * (a + b) * dt); }
-      let maxGap = 0;
-      const ls = lanes.map(l => { const gap = l.gap.slice(0, n); gap.forEach(g => { if (fin(g)) maxGap = Math.max(maxGap, g); }); return { id: l.id, name: l.name, short: l.short || l.name, accent: !!l.accent, v: l.v.slice(0, n), gap, pos: L.map((p, i) => p - (fin(gap[i]) ? gap[i] : (i ? L[i - 1] - gap[i - 1] : 0))), wh: l.wh ? l.wh.slice(0, n) : null }; });
+      let maxGap = 0; const allGaps = [];
+      const ls = lanes.map(l => { const gap = l.gap.slice(0, n); gap.forEach(g => { if (fin(g)) { maxGap = Math.max(maxGap, g); allGaps.push(g); } }); return { id: l.id, name: l.name, short: l.short || l.name, accent: !!l.accent, v: l.v.slice(0, n), gap, pos: L.map((p, i) => p - (fin(gap[i]) ? gap[i] : (i ? L[i - 1] - gap[i - 1] : 0))), wh: l.wh ? l.wh.slice(0, n) : null }; });
       let rec = null;
-      if (rec0) { const pos = []; for (let i = 0; i < n; i++) { const g = rec0.gap[i]; if (fin(g)) maxGap = Math.max(maxGap, g); pos.push(fin(g) ? L[i] - g : (i ? pos[i - 1] + (fin(rec0.v[i]) ? rec0.v[i] : 0) * dt : L[0] - 30)); } rec = { v: rec0.v.slice(0, n), gap: rec0.gap.slice(0, n), pos, wh: rec0.wh ? rec0.wh.slice(0, n) : null }; }
-      const nl = Math.max(1, ls.length);
-      this.data = { multi: true, n, dt, T: (n - 1) * dt, L, lanes: ls, rec, lead, maxGap: maxGap + 2, H: 24 + nl * 56 + 26 };
+      if (rec0) { const pos = []; for (let i = 0; i < n; i++) { const g = rec0.gap[i]; if (fin(g)) { maxGap = Math.max(maxGap, g); allGaps.push(g); } pos.push(fin(g) ? L[i] - g : (i ? pos[i - 1] + (fin(rec0.v[i]) ? rec0.v[i] : 0) * dt : L[0] - 30)); } rec = { v: rec0.v.slice(0, n), gap: rec0.gap.slice(0, n), pos, wh: rec0.wh ? rec0.wh.slice(0, n) : null }; }
+      const nl = Math.max(1, ls.length), single = nl === 1; let range = maxGap;
+      if (single && allGaps.length) { allGaps.sort((a, b) => a - b); range = Math.min(maxGap, allGaps[Math.floor(0.9 * (allGaps.length - 1))]); }   // single lane: zoom to where the data lives, the rare extreme gap may leave the picture
+      const LH = single ? 74 : 56;
+      this.data = { multi: true, n, dt, T: (n - 1) * dt, L, lanes: ls, rec, lead, maxGap: range + 2, single, LH, H: 24 + nl * LH + 26 };
       this.t = 0; this.lastIdx = -1; this.hold = 0; this.sl.max = this.data.T.toFixed(1); this.sl.value = 0;
       const anyOurs = ls.some(l => l.accent), anyOther = ls.some(l => !l.accent);
       this.lg.innerHTML = `<span class="lg"><span class="rv-sw is-lead"></span>Lead car</span>` + (rec ? `<span class="lg"><span class="rv-sw is-rec"></span>Recorded follower (outline)</span>` : '') +
@@ -90,9 +92,9 @@
       if (o.autoplay && !reduced()) this.play();
     }
     drawMulti() {
-      const D = this.data, c = this.ctx, W = this.W, C = this.col, ppm = this.ppm, f = this.t / D.dt, gl = this.gl, gr = this.gr, RW = W - gl - gr, xl = this.xl, HEAD = 24, LH = 56;
+      const D = this.data, c = this.ctx, W = this.W, C = this.col, ppm = this.ppm, f = this.t / D.dt, gl = this.gl, gr = this.gr, RW = W - gl - gr, xl = this.xl, HEAD = 24, LH = D.LH, single = D.single;
       c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0); c.clearRect(0, 0, W, D.H);
-      const pL = lerp(D.L, f), X = m => xl + (m - pL) * ppm, len = CAR * ppm, carH = clamp(len * 0.4, 10, 17), wr = Math.max(2.5, carH * 0.19), bodyH = carH * 0.72;
+      const pL = lerp(D.L, f), X = m => xl + (m - pL) * ppm, len = CAR * ppm, carH = clamp(len * 0.4, 10, single ? 30 : 17), wr = Math.max(2.5, carH * 0.19), bodyH = carH * 0.72;
       const num = (v, d) => (v === null ? '-' : v.toFixed(d)), seg = (x, y, parts) => { for (const [s, col] of parts) { c.fillStyle = col; c.fillText(s, x, y); x += c.measureText(s).width; } return x; };
       c.textBaseline = 'alphabetic'; c.textAlign = 'left'; c.font = `400 12px ${C.mono}`;
       const lv = lerp(D.lead, f), tt = [['lead ', C.text3], [lv === null ? '-' : String(Math.round(lv * 3.6)), C.text], [' km/h', C.text3], ['   t ', C.text3], [this.t.toFixed(1), C.text], [' s', C.text3]];
@@ -105,7 +107,7 @@
         for (const u of [0.22, 0.78]) { c.beginPath(); c.arc(x1 + len * u, roadTop - wr, wr, 0, 6.2832); c.fillStyle = C.card; c.fill(); c.stroke(); }
       };
       lanes.forEach((ln, i) => {
-        const y0 = HEAD + i * LH, roadTop = y0 + LH - 20, roadH = 12;
+        const y0 = HEAD + i * LH, roadTop = y0 + LH - 20, roadH = single ? 16 : 12;
         c.save(); c.beginPath(); c.rect(gl, y0, RW, LH); c.clip();
         c.fillStyle = C.raised; c.fillRect(gl, roadTop, RW, roadH); c.fillStyle = C.line2; c.fillRect(gl, roadTop, RW, 1); c.fillRect(gl, roadTop + roadH - 1, RW, 1);
         c.globalAlpha = 0.55; c.fillStyle = C.text3; const w0 = pL - (xl - gl) / ppm - 30, w1 = pL + (W - gr - xl) / ppm + 30;
@@ -135,7 +137,7 @@
       const cv = this.cv, W = Math.floor(cv.parentNode.clientWidth); if (!W) return;
       const D = this.data; if (D && D.multi) { this.h = D.H; cv.parentNode.style.height = D.H + 'px'; }
       this.W = W; this.dpr = window.devicePixelRatio || 1; cv.width = Math.round(W * this.dpr); cv.height = Math.round(this.h * this.dpr);
-      if (D && D.multi) { const nar = W < 600; this.gl = nar ? 76 : 112; this.gr = nar ? 84 : 156; this.ppm = clamp((W - this.gl - this.gr - 36) / (D.maxGap + 2 * CAR), 3, 16); this.xl = W - this.gr - 14 - CAR * this.ppm; }
+      if (D && D.multi) { const nar = W < 600; this.gl = nar ? 76 : 112; this.gr = nar ? 84 : 156; this.ppm = clamp((W - this.gl - this.gr - 36) / (D.maxGap + 2 * CAR), 3, D.single ? 24 : 16); this.xl = W - this.gr - 14 - CAR * this.ppm; }
       else if (D) { const tot = (D.ahead + D.behind) * 1.04; this.ppm = clamp((W - 24) / tot, 4, 16); this.x0 = 12 + D.behind * this.ppm; }
       this.ui(); this.draw();
     }

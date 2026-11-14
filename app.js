@@ -30,7 +30,7 @@ const pct = (a, b) => (100 * (a - b) / b);
 const sgn = x => (x > 0 ? '+' : '') + x.toFixed(2).replace('-', '\u2212') + '%';
 
 /* ---------------- worker plumbing ---------------- */
-const worker = DESKTOP ? new Worker('worker.js?v=20261114d', { type: 'module' }) : null;   // phones and tablets never create the worker, so Pyodide and the data files are never requested
+const worker = DESKTOP ? new Worker('worker.js?v=20261114e', { type: 'module' }) : null;   // phones and tablets never create the worker, so Pyodide and the data files are never requested
 let nextId = 1; const pending = new Map(); let readyRes, readyRej; const ready = new Promise((a, b) => { readyRes = a; readyRej = b; });
 function setBar(frac, msg) { $('lbar').style.transform = 'scaleX(' + frac.toFixed(3) + ')'; $('lmsg').textContent = readyInfo ? msg : 'Loading the engine… (first visit downloads ~30 MB)'; if (!readyInfo) setChip('loading', 'Loading engine ' + Math.round(frac * 100) + '%'); if (progressSink) progressSink(frac, msg); }
 if (worker) worker.onmessage = e => {
@@ -44,12 +44,23 @@ if (worker) worker.onerror = e => { heroLabel(false); $('lmsg').innerHTML = '<sp
 function call(msg) { const id = nextId++; return new Promise((res, rej) => { pending.set(id, { res, rej }); worker.postMessage(Object.assign({ id }, msg)); }); }
 if (DESKTOP) Promise.all([fetch('data/reference.json').then(r => r.json()), fetch('data/ml_reference.json').then(r => r.json())]).then(([a, b]) => { REF = a; MLREF = b; });
 if (worker) worker.postMessage({ cmd: 'init' });
+/* MATLAB check windows and traces (optional: a missing file just hides the feature) */
+let MW = null, MT = null;
+const getJSON = u => DESKTOP ? fetch(u).then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null);
+getJSON('data/matlab_windows.json?v=20261114e').then(d => { MW = d && d.windows && d.windows.length === 10 ? d : null; if (!MW) $('mmodelab').hidden = true; else fillMWin(); });
+getJSON('data/matlab_traces.json?v=20261114e').then(d => { MT = d; });
+function mtrace(n) {
+  if (!MT) return null; const z = String(n).padStart(2, '0'), W = MT.windows || MT, d = Array.isArray(W) ? W[n - 1] : (W['w' + n] || W['w' + z] || W[n] || W[z]);
+  return d && Array.isArray(d.t) && d.v_acc && d.v_mpc ? d : null;
+}
+function fillMWin() { const sel = $('mwin'); sel.innerHTML = ''; MW.windows.forEach((w, i) => { const o = document.createElement('option'); o.value = i; o.textContent = `Window ${w.n}: lead mean ${w.lead_mean_kmh.toFixed(0)} km/h`; sel.appendChild(o); }); sel.onchange = () => { resetStage(); preview(); }; }
+
 
 /* ---------------- charts ---------------- */
 const chartJobs = {};
-function lineChart(el, t, series, ylabel) {
-  chartJobs[el.id] = [el, t, series, ylabel];
-  const W = Math.max(280, Math.floor(el.clientWidth) || 640), H = W < 480 ? 240 : 320, m = { l: 44, r: 8, t: 8, b: 28 };
+function lineChart(el, t, series, ylabel, opt) {
+  opt = opt || {}; chartJobs[el.id] = [el, t, series, ylabel, opt];
+  const W = Math.max(280, Math.floor(el.clientWidth) || 640), H = opt.h || (W < 480 ? 240 : 320), m = { l: 44, r: 8, t: 8, b: 28 };
   const all = series.flatMap(s => s.y.filter(v => v !== null && Number.isFinite(v)));
   if (!all.length) { el.innerHTML = '<div class="mut lim">No data</div>'; return; }
   const mn = Math.min(0, ...all), mx = Math.max(...all) || 1, raw = (mx - mn) / 4, pw = Math.pow(10, Math.floor(Math.log10(raw))), step = [1, 2, 2.5, 5, 10].map(k => k * pw).find(v => v >= raw) || raw, lo = Math.floor(mn / step + 1e-9) * step, hi = Math.ceil(mx / step - 1e-9) * step, nt4 = Math.round((hi - lo) / step), dec = Number.isInteger(step) ? 0 : (Math.round(step * 10) === step * 10 ? 1 : 2), T = t[t.length - 1] || 1;
@@ -59,11 +70,12 @@ function lineChart(el, t, series, ylabel) {
   const nt = W < 480 ? 3 : 5; for (let i = 0; i <= nt; i++) { const v = T * i / nt; g += `<text x="${x(v)}" y="${H - 8}" text-anchor="${i === 0 ? 'start' : i === nt ? 'end' : 'middle'}">${v.toFixed(0)} s</text>`; }
   const paths = series.map(s => {
     let d = '', pen = false;
-    s.y.forEach((v, i) => { if (v === null || !Number.isFinite(v)) { pen = false; return; } d += (pen ? 'L' : 'M') + x(t[i]).toFixed(1) + ' ' + y(v).toFixed(1); pen = true; });
+    const tt = s.t || t; s.y.forEach((v, i) => { if (v === null || !Number.isFinite(v) || tt[i] === undefined) { pen = false; return; } d += (pen ? 'L' : 'M') + x(tt[i]).toFixed(1) + ' ' + y(v).toFixed(1); pen = true; });
     return `<path class="ln" d="${d}" style="stroke:${s.c};stroke-width:${s.w || 1.5}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ''}/>`;
   });
-  const lg = series.map(s => `<span class="lg">${swatch(s)}${s.n}</span>`).join('');
-  el.innerHTML = `<div class="legend">${lg}</div><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${ylabel}" data-ml="${m.l}" data-mr="${m.r}" data-w="${W}" data-t="${T}">${g}${paths.join('')}<line class="scrubl" y1="${m.t}" y2="${H - m.b}" x1="0" x2="0" style="display:none"/><rect class="hit" x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H}" fill="transparent" style="touch-action:pan-y"/></svg><div class="meta" style="margin-top:4px">${ylabel}</div>`;
+  const lg = series.filter(s => !s.hide).map(s => `<span class="lg">${swatch(s)}${s.n}</span>`).join('');
+  el.innerHTML = `${opt.labelTop ? `<div class="meta top">${ylabel}</div>` : ''}${opt.legend === false ? '' : `<div class="legend">${lg}</div>`}<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${ylabel}" data-ml="${m.l}" data-mr="${m.r}" data-w="${W}" data-t="${T}">${g}${paths.join('')}<line class="scrubl" y1="${m.t}" y2="${H - m.b}" x1="0" x2="0" style="display:none"/><rect class="hit" x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H}" fill="transparent" style="touch-action:pan-y"/></svg>${opt.labelTop ? '' : `<div class="meta" style="margin-top:4px">${ylabel}</div>`}`;
+  if (opt.noScrub) return;
   const sv = el.querySelector('svg[data-ml]'), hit = sv.querySelector('.hit'), send = t => window.dispatchEvent(new CustomEvent('ev:scrub', { detail: { t, src: 'chart', scope: 'run' } }));
   const move = e => { const r = hit.getBoundingClientRect(); send(Math.max(0, Math.min(T, (e.clientX - r.left) / r.width * T))); };
   hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move); hit.addEventListener('pointerleave', () => send(null));
@@ -93,7 +105,7 @@ function readMode() { return document.querySelector('input[name=mode]:checked').
 let pvT = 0;
 ['eta', 'cap'].forEach(k => $(k).oninput = () => { $(k + 'v').textContent = $(k).value; if (!hasRun && !running && readMode() === 'window') { clearTimeout(pvT); pvT = setTimeout(preview, 250); } });
 $('reset').onclick = () => { $('eta').value = 0.65; $('cap').value = 35; $('etav').textContent = '0.65'; $('capv').textContent = '35'; if (!hasRun && !running && readMode() === 'window') preview(); };
-document.querySelectorAll('input[name=mode]').forEach(r => r.onchange = () => { const w = readMode() === 'window'; $('winbox').style.display = w ? '' : 'none'; $('upbox').style.display = w ? 'none' : ''; resetStage(); preview(); });
+document.querySelectorAll('input[name=mode]').forEach(r => r.onchange = () => { const m = readMode(); $('winbox').style.display = m === 'window' ? '' : 'none'; $('mbox').style.display = m === 'matlab' ? '' : 'none'; $('upbox').style.display = m === 'upload' ? '' : 'none'; resetStage(); preview(); });
 $('file').onchange = e => { const f = e.target.files[0]; if (f) f.text().then(t => $('trace').value = t); };
 $('ex').onclick = () => { const v = []; for (let t = 0; t <= 150; t++) { const c = (t % 50); v.push((c < 20 ? 8 + 0.6 * c : c < 30 ? 20 - 1.7 * (c - 20) : c < 40 ? 3 + 0.2 * (c - 30) : 5 + 0.7 * (c - 40)).toFixed(2)); } $('trace').value = v.join('\n'); $('unit').value = 'mps'; $('hz').value = '1'; };
 function parseTrace() {
@@ -107,12 +119,13 @@ let hasRun = false, running = false, pvSeq = 0;
 const RAIL_CTRL = '#sec-run .rail input, #sec-run .rail select, #sec-run .rail textarea, #sec-run .rail .alt, #sec-run .rail .linkbtn';
 function lockRail(v) { document.querySelectorAll(RAIL_CTRL).forEach(e => { e.disabled = v; }); }
 function resetStage() {
+  $('tab-matlab').hidden = true; $('mlpanel').innerHTML = ['t1m', 't3m'].map(i => { $(i).hidden = true; return ''; }).join(''); if ($('tab-matlab').getAttribute('aria-selected') === 'true') activateTab('table', false);
   hasRun = false; $('out').style.display = 'none'; $('empty').hidden = false; $('export').disabled = true; $('queue').hidden = true; $('queue').innerHTML = ''; $('status').textContent = '';
   ['t1', 't2', 't3', 't4'].forEach(i => { $(i).textContent = '-'; }); $('t2s').textContent = 'recorded follower, same battery model'; $('t1s').textContent = 'Wh/km, MPC const-speed'; window.__lastRun = null;
   if (!running && readyInfo) setChip('idle', 'Idle');
 }
 async function preview() {
-  const up = readMode() !== 'window'; $('rv-empty').hidden = !up; $('rv-run').hidden = up; $('rv-cap').hidden = up; if (up || !rvRun) return;
+  const up = readMode() !== 'window'; $('rv-empty').textContent = readMode() === 'matlab' ? 'Press run. The road view shows the computed lanes for this MATLAB check window.' : 'Upload a lead-speed trace and press run. The road view shows the computed lanes.'; $('rv-empty').hidden = !up; $('rv-run').hidden = up; $('rv-cap').hidden = up; if (up || !rvRun) return;
   $('rv-cap').textContent = $('wininfo').textContent + ' Recorded data only. Press run to add the controllers.';
   /* recorded data only: the follower replay, plus the lead-speed trace (taken from the cheap tuned-ACC call; none of that controller's results is shown) */
   const seq = ++pvSeq, idx = +$('win').value; let m, l; try { m = await call({ cmd: 'runWindow', arm: 'recorded', idx, eta: +$('eta').value, cap: +$('cap').value }); if (seq !== pvSeq) return; l = await call({ cmd: 'runWindow', arm: 'acc', idx, eta: 0.65, cap: 35 }); } catch (e) { return; }
@@ -126,6 +139,7 @@ async function runSim() {
   let up = null, idx = null;
   try {
     if (mode === 'upload') { up = parseTrace(); await call({ cmd: 'checkUpload', speeds: JSON.stringify(up.speeds), hz: up.hz, unit: $('unit').value }); }
+    else if (mode === 'matlab') { if (!MW) throw new Error('The MATLAB check windows could not be loaded.'); idx = +$('mwin').value; up = { speeds: MW.windows[idx].speeds.map(Math.fround), hz: MW.meta.hz }; await call({ cmd: 'checkUpload', speeds: JSON.stringify(up.speeds), hz: up.hz, unit: 'mps' }); }
     else idx = +$('win').value;
   } catch (e) { st.innerHTML = `<span class="err">${e.message.split('\n').filter(Boolean).pop()}</span>`; setChip('error', 'Error'); return; }
   running = true; hasRun = false; pvSeq++; lockRail(true); $('run').disabled = true; $('export').disabled = true; $('empty').hidden = false;
@@ -137,7 +151,7 @@ async function runSim() {
   try {
     for (let i = 0; i < arms.length; i++) {
       cur = arms[i]; qs(cur, 'run', 'running'); setChip('running', `Running ${i + 1} of ${arms.length}`);
-      const m = mode === 'window' ? await call({ cmd: 'runWindow', arm: cur, idx, eta, cap }) : await call({ cmd: 'runUpload', arm: cur, speeds: JSON.stringify(up.speeds), hz: up.hz, unit: $('unit').value, eta, cap });
+      const m = mode === 'window' ? await call({ cmd: 'runWindow', arm: cur, idx, eta, cap }) : await call({ cmd: 'runUpload', arm: cur, speeds: JSON.stringify(up.speeds), hz: up.hz, unit: mode === 'matlab' ? 'mps' : $('unit').value, eta, cap });
       R[cur] = m.res; R[cur]._secs = m.secs; qs(cur, 'done', m.secs.toFixed(1) + ' s');
     }
     if (mode === 'window') { cur = 'recorded'; qs(cur, 'run', 'running'); const m = await call({ cmd: 'runWindow', arm: 'recorded', idx, eta, cap }); rec = m.res; qs(cur, 'done', m.secs.toFixed(1) + ' s'); }
@@ -147,18 +161,24 @@ async function runSim() {
   render(R, rec, arms, mode, idx, eta, cap, secs);
 }
 $('run').onclick = runSim;
-function setTiles(R, rec, mode, secs) {
+const dp3 = x => (Math.abs(x) < 0.0005 ? '0.000%' : (x > 0 ? '+' : '\u2212') + Math.abs(x).toFixed(3) + '%');
+function setTiles(R, rec, mode, secs, ml) {
   const m = R.mpc_const, a = R.acc; $('t1').textContent = m ? fmt(m.whkm_adj, 1) : '-'; $('t1s').textContent = m ? 'Wh/km, MPC const-speed' : 'MPC const-speed not selected';
-  if (mode === 'upload') { $('t2').textContent = 'n/a'; $('t2s').textContent = 'no recording for an upload'; } else { $('t2').textContent = m && rec ? sgn(pct(m.whkm_adj, rec.whkm_adj)) : '-'; $('t2s').textContent = 'recorded follower, same battery model'; }
+  if (mode !== 'window') { $('t2').textContent = 'n/a'; $('t2s').textContent = mode === 'matlab' ? 'no recording for this trace' : 'no recording for an upload'; } else { $('t2').textContent = m && rec ? sgn(pct(m.whkm_adj, rec.whkm_adj)) : '-'; $('t2s').textContent = 'recorded follower, same battery model'; }
   $('t3').textContent = m && a ? sgn(pct(m.whkm_adj, a.whkm_adj)) : '-'; $('t4').textContent = secs.toFixed(1) + ' s';
+  $('t1m').hidden = $('t3m').hidden = true;
+  if (ml) {   // 5th line: MATLAB's own numbers for this window (only the ACC and the MPC const-speed were ported)
+    if (m && ml.mpc_const) { $('t1m').hidden = false; $('t1m').textContent = `MATLAB for this window: ${fmt(ml.mpc_const.whkm_adj, 2)} Wh/km (diff ${dp3(pct(m.whkm_adj, ml.mpc_const.whkm_adj))})`; }
+    if (m && a && ml.mpc_const && ml.acc) { $('t3m').hidden = false; $('t3m').textContent = `MATLAB for this window: ${sgn(pct(ml.mpc_const.whkm_adj, ml.acc.whkm_adj))}`; }
+  }
 }
 /* ---- tabs ---- */
-const TABS = ['speed', 'gap', 'energy', 'table'];
+const TABS = ['speed', 'gap', 'energy', 'table', 'matlab'], visTabs = () => TABS.filter(t => !$('tab-' + t).hidden);
 function redrawCharts() { Object.values(chartJobs).forEach(j => { const sv = j[0].querySelector('svg'); if (sv && j[0].offsetParent && Math.abs(j[0].clientWidth - (+sv.getAttribute('width'))) > 8) lineChart(...j); }); }
 function activateTab(k, focus) { TABS.forEach(t => { const on = t === k, b = $('tab-' + t); b.setAttribute('aria-selected', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; $('pn-' + t).hidden = !on; }); if (focus) $('tab-' + k).focus(); redrawCharts(); }
 TABS.forEach((t, i) => {
   $('tab-' + t).onclick = () => activateTab(t, false);
-  $('tab-' + t).onkeydown = e => { const j = e.key === 'ArrowRight' ? (i + 1) % 4 : e.key === 'ArrowLeft' ? (i + 3) % 4 : e.key === 'Home' ? 0 : e.key === 'End' ? 3 : -1; if (j >= 0) { e.preventDefault(); activateTab(TABS[j], true); } };
+  $('tab-' + t).onkeydown = e => { const V = visTabs(), k = V.indexOf(t), n = V.length, j = e.key === 'ArrowRight' ? (k + 1) % n : e.key === 'ArrowLeft' ? (k + n - 1) % n : e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : -1; if (j >= 0) { e.preventDefault(); activateTab(V[j], true); } };
 });
 /* ---- CSV export (built in the browser from the last result) ---- */
 const csvCell = v => { const x = String(v === null || v === undefined ? '' : v); return /[",\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
@@ -170,18 +190,20 @@ function exportCSV() {
   const lines = [head.join(',')];
   for (let i = 0; i < n; i++) { const row = [r4(first.t[i]), r4(first.lead[i])]; if (hasRec) row.push(r4(rec.trace.v[i]), r4(rec.trace.gap[i])); if (recWh) row.push(r4(rec.trace.wh[i])); arms.forEach(a => { const tr = R[a].trace; row.push(r4(tr.v[i]), r4(tr.gap[i]), r4(tr.wh[i])); }); lines.push(row.join(',')); }
   const tl = []; document.querySelectorAll('#tbl table tr').forEach(tr => tl.push([...tr.children].map(c => csvCell(c.textContent.trim())).join(',')));
-  const id = mode === 'window' ? 'window' + (WINDOWS[idx] ? WINDOWS[idx].win : idx) : 'upload', base = `ev_${id}_eta${eta}_cap${cap}`;
+  const id = mode === 'window' ? 'window' + (WINDOWS[idx] ? WINDOWS[idx].win : idx) : mode === 'matlab' ? 'matlab_window' + (MW ? MW.windows[idx].n : idx) : 'upload', base = `ev_${id}_eta${eta}_cap${cap}`;
   saveText(base + '.csv', lines.join('\n') + '\n'); setTimeout(() => saveText(base + '_table.csv', tl.join('\n') + '\n'), 300);
 }
 $('export').onclick = exportCSV;
 function render(R, rec, arms, mode, idx, eta, cap, secs) {
-  $('out').style.display = 'block'; $('empty').hidden = true; $('export').disabled = false; hasRun = true; setTiles(R, rec, mode, secs);
   const dflt = Math.abs(eta - 0.65) < 1e-9 && Math.abs(cap - 35) < 1e-9, stored = (mode === 'window' && dflt && REF) ? REF.windows[idx] : null;
+  const isM = mode === 'matlab' && !!MW, mwin = isM ? MW.windows[idx] : null, ml = isM && dflt ? mwin.matlab : null, mt = ml ? mtrace(mwin.n) : null, fw = isM ? (x => fmt(x, 3)) : (x => fmt(x, 1));
+  $('out').style.display = 'block'; $('empty').hidden = true; $('export').disabled = false; hasRun = true; setTiles(R, rec, mode, secs, ml);
   const base = R.acc ? R.acc.whkm_adj : null, recW = rec ? rec.whkm_adj : null;
-  let h = '<table><tr><th>Controller</th><th>Wh/km (your browser)</th>' + (stored ? '<th>Stored Python result (paper)</th><th>Browser vs stored</th>' : '') + '<th>vs tuned ACC</th>' + (rec ? '<th>vs recorded follower</th>' : '') + '<th>Mean gap (m)</th><th>Jerk RMS</th><th>Unsafe?</th><th>Time</th></tr>';
+  let h = '<table><tr><th>Controller</th><th>Wh/km (your browser)</th>' + (ml ? '<th>MATLAB R2024b</th><th>Web vs MATLAB</th>' : '') + (stored ? '<th>Stored Python result (paper)</th><th>Browser vs stored</th>' : '') + '<th>vs tuned ACC</th>' + (rec ? '<th>vs recorded follower</th>' : '') + '<th>Mean gap (m)</th><th>Jerk RMS</th><th>Unsafe?</th><th>Time</th></tr>';
   if (rec) h += `<tr class="hl"><td>${swatch(REC)}Recorded follower (replayed through the same battery model)</td><td>${fmt(rec.whkm_adj, 1)}</td>${stored ? `<td>${fmt(stored.recorded.whkm_adj, 1)}</td><td>${sgn(pct(rec.whkm_adj, stored.recorded.whkm_adj))}</td>` : ''}<td>${base ? sgn(pct(rec.whkm_adj, base)) : '-'}</td><td>0 (reference)</td><td>${fmt(rec.gap_mean, 1)}</td><td>${fmt(rec.jerk_rms)}</td><td>n/a</td><td>-</td></tr>`;
   arms.forEach(a => {
-    const o = R[a]; let cells = `<td>${swatch(ARMS[a])} ${ARMS[a].name}</td><td>${fmt(o.whkm_adj, 1)}</td>`;
+    const o = R[a]; let cells = `<td>${swatch(ARMS[a])} ${ARMS[a].name}</td><td>${fw(o.whkm_adj)}</td>`;
+    if (ml) cells += ml[a] ? `<td>${fmt(ml[a].whkm_adj, 3)}</td><td>${dp3(pct(o.whkm_adj, ml[a].whkm_adj))}</td>` : '<td class="mut">not ported</td><td>-</td>';
     if (stored) { const s = stored[a]; cells += `<td>${fmt(s.whkm_adj, 1)}${s.short_max > 0.5 ? ' (unsafe)' : ''}</td><td>${sgn(pct(o.whkm_adj, s.whkm_adj))}</td>`; }
     cells += `<td>${base && a !== 'acc' ? sgn(pct(o.whkm_adj, base)) : (a === 'acc' ? '0 (reference)' : '-')}</td>`;
     if (rec) cells += `<td>${sgn(pct(o.whkm_adj, recW))}</td>`;
@@ -191,16 +213,38 @@ function render(R, rec, arms, mode, idx, eta, cap, secs) {
   $('tbl').innerHTML = h + '</table>';
   const notes = [`Settings: regen efficiency ${eta}, regen cap ${cap} kW. Wh/km is battery energy with the paper's kinetic-energy end correction. Unsafe = gap shortfall above 0.5 m against the safe-gap rule 4 + 0.7 v.`];
   if (mode === 'window') notes.push(dflt ? 'The stored Python result is the number in the paper for this window (same controller code, OSQP solver for MPC, PyTorch actors for SAC). MPC rows can differ from it by up to about 0.2% because the browser uses the Clarabel solver.' : 'You changed the regen settings, so the stored paper results (computed at 0.65 / 35 kW) are not shown; the recorded follower is replayed again with your settings.');
+  else if (isM) notes.push(`MATLAB check window ${mwin.n}: the 10 Hz lead-speed trace the MATLAB check used (V2V test row ${mwin.row}, not one of the 160 windows), run through this page's upload path.` + (ml ? ' MATLAB R2024b column: matlab/verify/matlab_results.csv. MATLAB ported only the tuned ACC and the MPC with constant-speed preview, so the other controllers show "not ported". Web vs MATLAB = website / MATLAB \u2212 1. Both columns are shown to 3 decimals.' : ' You changed the regen settings, so MATLAB\'s results (computed at 0.65 / 35 kW) are not shown.'));
   else notes.push(`Uploaded trace: ${(R[arms[0]].seconds_simulated).toFixed(0)} s simulated (the last 30 s of a trace give the MPC its look-ahead). This is your data, not a paper result. The oracle sees the lead car's future, so it is a ceiling, not a deployable controller.`);
   $('tnote').innerHTML = notes.join('<br>');
   const first = R[arms[0]], t = first.trace.t, S = [Object.assign({ y: first.trace.lead }, LEAD, { n: 'Lead' })], G = [], E = [];
   if (rec) { S.push(Object.assign({ y: rec.trace.v }, REC)); G.push(Object.assign({ y: rec.trace.gap }, REC, { n: 'Recorded follower (gap sensor)' })); }
   arms.forEach(a => { const tr = R[a].trace, o = ARMS[a]; S.push(Object.assign({}, o, { n: o.name, y: tr.v })); G.push(Object.assign({}, o, { n: o.name, y: tr.gap })); E.push(Object.assign({}, o, { n: o.name, y: tr.wh })); });
+  if (mt) {   // MATLAB's own traces for the ACC and the MPC const-speed, dotted graphite on top of the website's lines
+    arms.filter(a => a === 'acc' || a === 'mpc_const').forEach((a, i) => { const k = a === 'acc' ? 'acc' : 'mpc', o = { t: mt.t, c: 'var(--text)', w: 1.25, dash: '1.5 3', n: 'MATLAB R2024b', hide: i > 0 }; S.push(Object.assign({ y: mt['v_' + k] }, o)); G.push(Object.assign({ y: mt['gap_' + k] }, o)); E.push(Object.assign({ y: mt['E_' + k + '_Wh'] }, o)); });
+  }
   runScrubT = null;
   lineChart($('c1'), t, S, 'speed, m/s'); lineChart($('c2'), t, G, 'gap to lead, m'); lineChart($('c3'), t, E, 'cumulative battery energy, Wh');
   window.__lastRun = { R, rec, arms, mode, idx, eta, cap, secs };
+  $('tab-matlab').hidden = true; $('mlpanel').innerHTML = ''; if (ml && arms.some(a => a === 'acc' || a === 'mpc_const')) buildMLTab(R, arms, mwin, ml);
   activateTab('table', false);
   showRoad(R, rec, arms, t);
+}
+/* ---- MATLAB tab: the MATLAB-made PNG next to the website's own small speed / gap / energy charts, plus the Wh/km comparison */
+function buildMLTab(R, arms, mwin, ml) {
+  const n = mwin.n, Z = String(n).padStart(2, '0'), A = arms.filter(a => a === 'acc' || a === 'mpc_const'), pn = $('mlpanel'), src = `figures/matlab/traces_w${Z}.png?v=20261114e`;
+  let rows = '', cap = [];
+  A.forEach(a => { const o = R[a], m = ml[a]; rows += `<tr><td>${swatch(ARMS[a])} ${SHORT[a]}</td><td>${fmt(m.whkm_adj, 3)}</td><td>${fmt(o.whkm_adj, 3)}</td><td>${dp3(pct(o.whkm_adj, m.whkm_adj))}</td></tr>`; cap.push(`${SHORT[a]} ${fmt(m.whkm_adj, 3)} (MATLAB) and ${fmt(o.whkm_adj, 3)} (website) Wh/km`); });
+  pn.innerHTML = `<div class="mlp"><figure class="mlfig"><button type="button" class="gal-b ml-b" id="mlimg-b" aria-label="Enlarge the MATLAB figure for window ${n}"><img id="mlimg" src="${src}" alt="MATLAB R2024b figure for window ${n}: lead and follower speed, gap and cumulative energy for the ACC and the MPC"></button><figcaption>Made by MATLAB R2024b (make_site_traces.m, exportgraphics) from its own simulation of window ${n}. Click to enlarge.</figcaption></figure>` +
+    `<div class="mlside"><div class="mlh">This website, same window</div><div id="cm1" class="chartbox chart"></div><div id="cm2" class="chartbox chart"></div><div id="cm3" class="chartbox chart"></div></div></div>` +
+    `<div class="tw"><table class="mlt"><tr><th>Controller</th><th>MATLAB Wh/km</th><th>Website Wh/km</th><th>Website vs MATLAB</th></tr>${rows}</table></div><div class="lim mut" style="margin-top:8px">Window ${n}: ${cap.join('; ')}. The dotted lines in the Speed, Gap and Energy tabs are MATLAB's own traces of this window.</div>`;
+  const img = $('mlimg'), b = $('mlimg-b');
+  img.onerror = () => { b.outerHTML = `<div class="rv-empty" style="min-height:120px">The MATLAB figure for window ${n} is not available.</div>`; };
+  b.onclick = () => EVLB.open([{ src: img.currentSrc || img.src, alt: img.alt, cap: `MATLAB R2024b figure for window ${n}. ${cap.join('; ')}.` }], 0);
+  const tr = R[A[0]].trace, W = (key, k) => A.map(a => Object.assign({}, ARMS[a], { n: SHORT[a], y: R[a].trace[key] })), o3 = { h: 150, noScrub: true, labelTop: true };
+  lineChart($('cm1'), tr.t, [Object.assign({ y: tr.lead }, LEAD, { n: 'Lead' })].concat(W('v')), 'speed, m/s', Object.assign({}, o3, { legend: true }));
+  lineChart($('cm2'), tr.t, W('gap'), 'gap to lead, m', Object.assign({}, o3, { legend: false }));
+  lineChart($('cm3'), tr.t, W('wh'), 'cumulative battery energy, Wh', Object.assign({}, o3, { legend: false }));
+  $('tab-matlab').hidden = false;
 }
 let rvRun = null;
 function showRoad(R, rec, arms, t) {
@@ -232,7 +276,7 @@ const tq = (k, s, t) => { const li = $('tqueue').querySelector(`[data-k="${k}"]`
 async function runTrain() {
   const model = $('model').value, mode = $('tmode').value, n = SIZES[+$('size').value], imp = $('imp').checked, st = $('tstatus');
   tRunning = true; lockTrain(true); $('train').disabled = true; $('texport').disabled = true; st.textContent = ''; resetTiles(); tSteps(imp); tLast = null;
-  $('tout').style.display = 'none'; $('tempty').hidden = false; $('tempty').textContent = 'Training in your browser. The result appears here when it finishes.';
+  $('tout').style.display = 'none'; $('tempty').hidden = false; $('tempty-p').textContent = 'Training in your browser. The result appears here when it finishes.';
   const rail = document.querySelector('#trainwb .rail'); rail.scrollTop = rail.scrollHeight;
   const t0 = performance.now(); let cur = null, curT = t0; const durs = {};
   const phase = (k, chip) => { const now = performance.now(); if (cur) { durs[cur] = (now - curT) / 1000; tq(cur, 'done', durs[cur].toFixed(1) + ' s'); } cur = k; curT = now; if (k) { tq(k, 'run', 'running'); setTChip(chip[0], chip[1]); } };
@@ -248,7 +292,7 @@ async function runTrain() {
     mlSeen = true; bmwSeen = true; const secs = (now - t0) / 1000;
     st.innerHTML = `Computed on your device in <span class="ro">${secs.toFixed(1)} s</span> Nothing was sent to a server`; setTChip('done', `Done in ${secs.toFixed(1)} s`);
     renderTrain(r, model, mode, n, secs, imp);
-  } catch (e) { st.innerHTML = `<span class="err">${e.message.split('\n').filter(Boolean).pop()}</span>`; if (cur) tq(cur, 'err', 'error'); setTChip('error', 'Error'); $('tempty').textContent = 'The run did not finish. See the message under the steps in the settings.'; }
+  } catch (e) { st.innerHTML = `<span class="err">${e.message.split('\n').filter(Boolean).pop()}</span>`; if (cur) tq(cur, 'err', 'error'); setTChip('error', 'Error'); $('tempty-p').textContent = 'The run did not finish. See the message under the steps in the settings.'; }
   progressSink = null; tRunning = false; lockTrain(false); $('train').disabled = false; $('texport').disabled = RUNS.length === 0; rail.scrollTop = rail.scrollHeight;
 }
 $('train').onclick = runTrain;
@@ -324,16 +368,71 @@ function exportRuns() {
   saveText('ev_train_runs.csv', lines.join('\n') + '\n');
 }
 $('texport').onclick = exportRuns;
-/* ---------------- gallery lightbox (MATLAB section) ---------------- */
-(function () {
-  const dlg = $('lb'), btns = [...document.querySelectorAll('.gal-b')]; if (!dlg || !btns.length || !dlg.showModal) return; let cur = 0;
-  const show = i => { cur = (i + btns.length) % btns.length; const b = btns[cur], im = b.querySelector('img'); $('lb-img').src = im.currentSrc || im.src; $('lb-img').alt = im.alt; $('lb-cap').textContent = b.dataset.cap || ''; $('lb-n').textContent = (cur + 1) + ' of ' + btns.length; };
-  btns.forEach((b, i) => { b.onclick = () => { show(i); dlg.showModal(); }; });
+/* ---------------- lightbox (MATLAB gallery and the MATLAB figure of Run it) ---------------- */
+const EVLB = (function () {
+  const dlg = $('lb'); if (!dlg || !dlg.showModal) return { open() {} }; let items = [], cur = 0;
+  const show = i => { cur = (i + items.length) % items.length; const it = items[cur]; $('lb-img').src = it.src; $('lb-img').alt = it.alt; $('lb-cap').textContent = it.cap || ''; $('lb-n').textContent = items.length > 1 ? (cur + 1) + ' of ' + items.length : ''; };
+  const open = (list, i) => { items = list; show(i || 0); $('lb-prev').hidden = $('lb-next').hidden = list.length < 2; dlg.showModal(); };
   $('lb-prev').onclick = () => show(cur - 1); $('lb-next').onclick = () => show(cur + 1);
-  dlg.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') { e.preventDefault(); show(cur - 1); } else if (e.key === 'ArrowRight') { e.preventDefault(); show(cur + 1); } });
+  dlg.addEventListener('keydown', e => { if (items.length > 1 && e.key === 'ArrowLeft') { e.preventDefault(); show(cur - 1); } else if (items.length > 1 && e.key === 'ArrowRight') { e.preventDefault(); show(cur + 1); } });
   dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
-  $('lb-prev').hidden = $('lb-next').hidden = btns.length < 2;
+  const btns = [...document.querySelectorAll('.gal .gal-b')], list = btns.map(b => { const im = b.querySelector('img'); return { src: im.currentSrc || im.src, alt: im.alt, cap: b.dataset.cap || '', im }; });
+  btns.forEach((b, i) => { b.onclick = () => { list.forEach(l => { l.src = l.im.currentSrc || l.im.src; }); open(list, i); }; });
+  return { open };
 })();
+
+/* ---------------- Code section: file browser with a small built-in highlighter ---------------- */
+(function () {
+  const root = $('cv'); if (!root) return; const V = root.dataset.v, btns = [...root.querySelectorAll('.cv-f')], body = $('cv-body'), cache = {}; let cur = null, copyT = 0;
+  const KW = {
+    python: 'and as assert break class continue def del elif else except finally for from global if import in is lambda None nonlocal not or pass raise return try while with yield True False',
+    matlab: 'break case catch classdef continue else elseif end for function global if otherwise parfor persistent return switch try while true false',
+    js: 'async await break case catch class const continue default delete do else export finally for from function if import in instanceof let new null of return switch this throw true false try typeof undefined var void while yield'
+  };
+  const esc = x => x.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  function tokenize(src, lang) {
+    const kw = new Set(KW[lang].split(' ')), out = [], n = src.length, isId = c => c !== undefined && /[A-Za-z0-9_]/.test(c), NUM = /(?:\d[\d_]*(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/y, ID = /[A-Za-z_]\w*/y; let i = 0, plain = '';
+    const flush = () => { if (plain) { out.push(['', plain]); plain = ''; } }, push = (c, t) => { flush(); out.push([c, t]); }, eol = j => { const k = src.indexOf('\n', j); return k < 0 ? n : k; };
+    while (i < n) {
+      const ch = src[i], prev = src[i - 1];
+      if ((lang === 'python' && ch === '#') || (lang === 'matlab' && (ch === '%' || src.startsWith('...', i))) || (lang === 'js' && src.startsWith('//', i))) { const j = eol(i); push('c', src.slice(i, j)); i = j; continue; }
+      if (lang === 'js' && src.startsWith('/*', i)) { let j = src.indexOf('*/', i + 2); j = j < 0 ? n : j + 2; push('c', src.slice(i, j)); i = j; continue; }
+      if (lang === 'python' && (src.startsWith('"""', i) || src.startsWith("'''", i))) { const q = src.substr(i, 3); let j = src.indexOf(q, i + 3); j = j < 0 ? n : j + 3; push('s', src.slice(i, j)); i = j; continue; }
+      if (ch === '"' || (ch === "'" && !(lang === 'matlab' && (isId(prev) || ')]}.\''.includes(prev || ' ')))) || (lang === 'js' && ch === '`')) {
+        let j = i + 1; const multi = lang === 'js' && ch === '`';
+        while (j < n) { const c = src[j]; if (c === '\n' && !multi) break; if (lang !== 'matlab' && c === '\\') { j += 2; continue; } if (c === ch) { if (lang === 'matlab' && src[j + 1] === ch) { j += 2; continue; } j++; break; } j++; }
+        push('s', src.slice(i, j)); i = j; continue;
+      }
+      if (!isId(prev) && (/\d/.test(ch) || (ch === '.' && /\d/.test(src[i + 1] || '')))) { NUM.lastIndex = i; const m = NUM.exec(src); if (m) { push('n', m[0]); i += m[0].length; continue; } }
+      if (/[A-Za-z_]/.test(ch)) { ID.lastIndex = i; const m = ID.exec(src)[0]; if (kw.has(m)) push('k', m); else plain += m; i += m.length; continue; }
+      plain += ch; i++;
+    }
+    flush(); return out;
+  }
+  function highlight(src, lang) {
+    const lines = ['']; tokenize(src, lang).forEach(([c, t]) => { t.split('\n').forEach((piece, k) => { if (k) lines.push(''); if (piece) lines[lines.length - 1] += c ? `<span class="tk-${c}">${esc(piece)}</span>` : esc(piece); }); });
+    if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop(); return lines;
+  }
+  async function open(btn) {
+    const path = btn.dataset.path, name = btn.dataset.name; cur = btn; btns.forEach(b => b.setAttribute('aria-current', b === btn ? 'true' : 'false'));
+    $('cv-fn').textContent = name; $('cv-meta').textContent = `${btn.dataset.lines} lines, ${(+btn.dataset.bytes / 1024).toFixed(1)} KB`; $('cv-desc').textContent = btn.dataset.desc; $('cv-copy').disabled = $('cv-dl').disabled = true;
+    body.setAttribute('aria-label', 'Source of ' + name); body.setAttribute('aria-busy', 'true');
+    try {
+      if (cache[path] === undefined) { body.innerHTML = '<div class="cv-empty">Loading...</div>'; const r = await fetch(path + '?v=' + V); if (!r.ok) throw new Error(r.status); cache[path] = await r.text(); }
+      if (cur !== btn) return; const lines = highlight(cache[path], btn.dataset.lang);
+      body.innerHTML = `<div class="cv-in"><div class="cv-gut" aria-hidden="true">${lines.map((_, i) => i + 1).join('\n')}</div><pre class="cv-code"><code>${lines.join('\n')}</code></pre></div>`; body.scrollTop = 0; body.scrollLeft = 0; $('cv-copy').disabled = $('cv-dl').disabled = false;
+    } catch (e) { if (cur === btn) body.innerHTML = '<div class="cv-empty err">Could not load this file. Open it in the repository instead.</div>'; }
+    body.removeAttribute('aria-busy');
+  }
+  btns.forEach((b, i) => { b.setAttribute('aria-current', 'false'); b.onclick = () => open(b); b.onkeydown = e => { const j = e.key === 'ArrowDown' ? i + 1 : e.key === 'ArrowUp' ? i - 1 : -1; if (j >= 0 && j < btns.length) { e.preventDefault(); btns[j].focus(); } }; });
+  $('cv-copy').onclick = async () => {
+    const t = cache[cur.dataset.path]; if (t === undefined) return; try { await navigator.clipboard.writeText(t); } catch (e) { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e2) {} ta.remove(); }
+    $('cv-copy').textContent = 'Copied'; clearTimeout(copyT); copyT = setTimeout(() => { $('cv-copy').textContent = 'Copy'; }, 1600);
+  };
+  $('cv-dl').onclick = () => { const t = cache[cur.dataset.path]; if (t === undefined) return; const u = URL.createObjectURL(new Blob([t], { type: 'text/plain;charset=utf-8' })), a = document.createElement('a'); a.href = u; a.download = cur.dataset.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 2000); };
+  if (btns.length && 'IntersectionObserver' in window) { const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { io.disconnect(); if (!cur) open(btns[0]); } }, { rootMargin: '200px' }); io.observe(root); }
+})();
+
 
 /* ---------------- hidden self-test hook (for the PASS RULE check) ---------------- */
 window.runSelfTest = async function (opts) {
