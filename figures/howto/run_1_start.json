@@ -163,25 +163,25 @@
   },
   {
    "n": 8,
-   "side": "r",
-   "dx": -34,
-   "dy": 0,
+   "side": "b",
+   "dx": 0,
+   "dy": 36,
    "label": "Keep the engine on this device",
    "text": "Optional. Tick the box and press \"Keep it\" and your browser saves the engine, so the next visit starts without downloading. \"Not now\" hides the box for this visit and saves nothing. You can remove the saved files later on About.",
-   "selector": "#keepbar",
+   "selector": "#keep-tick",
    "bbox": {
-    "x": 368,
-    "y": 179.8,
-    "width": 955,
-    "height": 106
+    "x": 385,
+    "y": 248.8,
+    "width": 16,
+    "height": 16
    },
    "anchor": {
-    "x": 1323,
-    "y": 232.8
+    "x": 393.0,
+    "y": 264.8
    },
    "marker": {
-    "x": 1289,
-    "y": 232.8,
+    "x": 393.0,
+    "y": 300.8,
     "r": 13
    }
   }

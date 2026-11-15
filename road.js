@@ -87,7 +87,7 @@
       this.t = clamp(keepT, 0, this.data.T); this.lastIdx = -1; this.hold = 0; this.sl.max = this.data.T.toFixed(1); this.sl.value = this.t;
       const anyOurs = ls.some(l => l.accent), anyOther = ls.some(l => !l.accent);
       this.lg.innerHTML = `<span class="lg"><span class="rv-sw is-lead"></span>Lead car</span>` + (rec ? `<span class="lg"><span class="rv-sw is-rec"></span>Recorded follower (outline)</span>` : '') +
-        (anyOurs ? `<span class="lg"><span class="rv-sw is-ours"></span>Our car (MPC const-speed)</span>` : '') + (anyOther ? `<span class="lg"><span class="rv-sw is-other"></span>Other controllers</span>` : '') +
+        (anyOurs ? `<span class="lg"><span class="rv-sw is-ours"></span>Our car (${(ls.find(l => l.accent) || {}).short || 'MPC'})</span>` : '') + (anyOther ? `<span class="lg"><span class="rv-sw is-other"></span>Other controllers</span>` : '') +
         (d.obst && d.obst.breakers && d.obst.breakers.length ? `<span class="lg"><span class="rv-sw is-bump"></span>Speed breaker</span>` : '') + (d.obst && d.obst.potholes && d.obst.potholes.length ? `<span class="lg"><span class="rv-sw is-pit"></span>Pothole (demo only, not part of the paper's results)</span>` : '');
       this.layout(); this.ui();
       if (o.keep) { this.frame(true); if (wasPlaying) this.play(); } else if (o.autoplay && !reduced()) this.play();
@@ -117,7 +117,7 @@
         if (D.obst) {   // speed breakers: a raised hump on the road (drawn as a point of fixed width: the simulation treats a breaker as a point); potholes: a dark dip over their real length (the rough stretch)
           const lo = pL - (xl - gl) / ppm - 20, hi = pL + (W - gr - xl) / ppm + 20;
           (D.obst.potholes || []).forEach(p => { if (p[1] < lo || p[0] > hi) return; const a = X(p[0]), b = X(p[1]), w = Math.max(5, b - a); c.fillStyle = 'rgba(0,0,0,0.78)'; c.beginPath(); if (c.ellipse) c.ellipse(a + (b - a) / 2, roadTop + roadH * 0.62, w / 2, roadH * 0.42, 0, 0, 6.2832); else c.rect(a, roadTop + 3, w, roadH - 6); c.fill(); c.strokeStyle = C.text3; c.lineWidth = 1; c.stroke(); });
-          (D.obst.breakers || []).forEach(xb => { if (xb < lo || xb > hi) return; const a = X(xb), hw = Math.max(9, 1.6 * ppm), hh = single ? 11 : 9; c.fillStyle = C.text2; c.beginPath(); c.moveTo(a - hw, roadTop + 1); c.quadraticCurveTo(a, roadTop - hh * 1.9, a + hw, roadTop + 1); c.closePath(); c.fill(); });
+          (D.obst.breakers || []).forEach(xb => { if (xb < lo || xb > hi) return; const a = X(xb), hw = Math.max(9, 1.6 * ppm), hh = single ? 9 : 7; c.fillStyle = C.text2; c.beginPath(); c.moveTo(a - hw, roadTop + 1); c.quadraticCurveTo(a, roadTop - hh * 1.9, a + hw, roadTop + 1); c.closePath(); c.fill(); });
         }
         car(pL + CAR, 'lead', C.text3, roadTop);
         if (rp !== null) car(rp, 'rec', C.text, roadTop);
