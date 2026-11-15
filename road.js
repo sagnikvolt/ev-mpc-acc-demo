@@ -28,7 +28,7 @@
       host.classList.add('rv');
       host.innerHTML = `<div class="rv-cv" style="height:${this.h}px"><canvas role="img" aria-label="Side view of the lead car, the recorded follower and our car, replayed at the chosen speed"></canvas></div>` +
         `<div class="rv-ctl"><button type="button" class="rv-play" aria-label="Play">${icon('play')}</button>` +
-        `<div class="seg" role="radiogroup" aria-label="Replay speed">${[5, 10, 20].map(m => `<label><input type="radio" name="${this.id}-spd" value="${m}"${m === this.mult ? ' checked' : ''}><span>${m}x</span></label>`).join('')}</div>` +
+        `<div class="seg" role="radiogroup" aria-label="Replay speed (1x is real time)">${[1, 2, 5, 10, 20].map(m => `<label><input type="radio" name="${this.id}-spd" value="${m}"${m === this.mult ? ' checked' : ''}><span>${m}x</span></label>`).join('')}</div>` +
         `<input type="range" class="rv-sl" min="0" max="1" step="0.1" value="0" aria-label="Replay time"><span class="rv-t mono"></span></div><div class="rv-leg"></div>`;
       this.host = host; this.cv = host.querySelector('canvas'); this.ctx = this.cv.getContext('2d'); this.btn = host.querySelector('.rv-play'); this.sl = host.querySelector('.rv-sl'); this.tl = host.querySelector('.rv-t'); this.lg = host.querySelector('.rv-leg');
       this.btn.onclick = () => (this.playing ? this.pause() : this.play());
@@ -71,10 +71,10 @@
     /* multi-lane view: one lane per controller, same lead trajectory in every lane, recorded follower as an outline ghost in every lane.
        d = { t, lead, lanes: [{id, name, short, accent, v, gap, wh|null}], rec: {v, gap, wh|null} | null }; with no lanes the recorded data alone is shown. */
     setDataMulti(d, o) {
-      o = o || {}; this.pause();
+      o = o || {}; const keepT = o.keep ? this.t : 0, wasPlaying = o.keep && this.playing; this.pause();
       const lanes = d.lanes || [], rec0 = d.rec && d.rec.v && d.rec.gap ? d.rec : null;
       let n = Math.min(d.t.length, d.lead.length); lanes.forEach(l => { n = Math.min(n, l.v.length, l.gap.length); }); if (rec0) n = Math.min(n, rec0.v.length, rec0.gap.length);
-      const dt = d.t[1] - d.t[0], lead = d.lead.slice(0, n), g0 = lanes.length ? lanes[0].gap[0] : (rec0 ? rec0.gap[0] : 30), L = [fin(g0) ? g0 : 30];
+      const dt = d.t[1] - d.t[0], lead = d.lead.slice(0, n), g0 = fin(d.x0) ? d.x0 : (lanes.length ? lanes[0].gap[0] : (rec0 ? rec0.gap[0] : 30)), L = [fin(g0) ? g0 : 30];
       for (let i = 1; i < n; i++) { const a = fin(lead[i - 1]) ? lead[i - 1] : 0, b = fin(lead[i]) ? lead[i] : a; L.push(L[i - 1] + 0.5 * (a + b) * dt); }
       let maxGap = 0; const allGaps = [];
       const ls = lanes.map(l => { const gap = l.gap.slice(0, n); gap.forEach(g => { if (fin(g)) { maxGap = Math.max(maxGap, g); allGaps.push(g); } }); return { id: l.id, name: l.name, short: l.short || l.name, accent: !!l.accent, v: l.v.slice(0, n), gap, pos: L.map((p, i) => p - (fin(gap[i]) ? gap[i] : (i ? L[i - 1] - gap[i - 1] : 0))), wh: l.wh ? l.wh.slice(0, n) : null }; });
@@ -83,13 +83,14 @@
       const nl = Math.max(1, ls.length), single = nl === 1; let range = maxGap;
       if (single && allGaps.length) { allGaps.sort((a, b) => a - b); range = Math.min(maxGap, allGaps[Math.floor(0.9 * (allGaps.length - 1))]); }   // single lane: zoom to where the data lives, the rare extreme gap may leave the picture
       const LH = single ? 74 : 56;
-      this.data = { multi: true, n, dt, T: (n - 1) * dt, L, lanes: ls, rec, lead, maxGap: range + 2, single, LH, H: 24 + nl * LH + 26 };
-      this.t = 0; this.lastIdx = -1; this.hold = 0; this.sl.max = this.data.T.toFixed(1); this.sl.value = 0;
+      this.data = { multi: true, n, dt, T: (n - 1) * dt, L, lanes: ls, rec, lead, maxGap: range + 2, single, LH, H: 24 + nl * LH + 26, obst: d.obst || null };
+      this.t = clamp(keepT, 0, this.data.T); this.lastIdx = -1; this.hold = 0; this.sl.max = this.data.T.toFixed(1); this.sl.value = this.t;
       const anyOurs = ls.some(l => l.accent), anyOther = ls.some(l => !l.accent);
       this.lg.innerHTML = `<span class="lg"><span class="rv-sw is-lead"></span>Lead car</span>` + (rec ? `<span class="lg"><span class="rv-sw is-rec"></span>Recorded follower (outline)</span>` : '') +
-        (anyOurs ? `<span class="lg"><span class="rv-sw is-ours"></span>Our car (MPC const-speed)</span>` : '') + (anyOther ? `<span class="lg"><span class="rv-sw is-other"></span>Other controllers</span>` : '');
+        (anyOurs ? `<span class="lg"><span class="rv-sw is-ours"></span>Our car (MPC const-speed)</span>` : '') + (anyOther ? `<span class="lg"><span class="rv-sw is-other"></span>Other controllers</span>` : '') +
+        (d.obst && d.obst.breakers && d.obst.breakers.length ? `<span class="lg"><span class="rv-sw is-bump"></span>Speed breaker</span>` : '') + (d.obst && d.obst.potholes && d.obst.potholes.length ? `<span class="lg"><span class="rv-sw is-pit"></span>Pothole (demo only, not part of the paper's results)</span>` : '');
       this.layout(); this.ui();
-      if (o.autoplay && !reduced()) this.play();
+      if (o.keep) { this.frame(true); if (wasPlaying) this.play(); } else if (o.autoplay && !reduced()) this.play();
     }
     drawMulti() {
       const D = this.data, c = this.ctx, W = this.W, C = this.col, ppm = this.ppm, f = this.t / D.dt, gl = this.gl, gr = this.gr, RW = W - gl - gr, xl = this.xl, HEAD = 24, LH = D.LH, single = D.single;
@@ -113,6 +114,11 @@
         c.globalAlpha = 0.55; c.fillStyle = C.text3; const w0 = pL - (xl - gl) / ppm - 30, w1 = pL + (W - gr - xl) / ppm + 30;
         for (let k = Math.floor(w0 / 24); k * 24 < w1; k++) { const a = X(k * 24), b = X(k * 24 + 10); c.fillRect(a, roadTop + roadH / 2 - 0.75, b - a, 1.5); }
         c.globalAlpha = 1;
+        if (D.obst) {   // speed breakers: a raised hump on the road (drawn as a point of fixed width: the simulation treats a breaker as a point); potholes: a dark dip over their real length (the rough stretch)
+          const lo = pL - (xl - gl) / ppm - 20, hi = pL + (W - gr - xl) / ppm + 20;
+          (D.obst.potholes || []).forEach(p => { if (p[1] < lo || p[0] > hi) return; const a = X(p[0]), b = X(p[1]), w = Math.max(5, b - a); c.fillStyle = 'rgba(0,0,0,0.78)'; c.beginPath(); if (c.ellipse) c.ellipse(a + (b - a) / 2, roadTop + roadH * 0.62, w / 2, roadH * 0.42, 0, 0, 6.2832); else c.rect(a, roadTop + 3, w, roadH - 6); c.fill(); c.strokeStyle = C.text3; c.lineWidth = 1; c.stroke(); });
+          (D.obst.breakers || []).forEach(xb => { if (xb < lo || xb > hi) return; const a = X(xb), hw = Math.max(9, 1.6 * ppm), hh = single ? 11 : 9; c.fillStyle = C.text2; c.beginPath(); c.moveTo(a - hw, roadTop + 1); c.quadraticCurveTo(a, roadTop - hh * 1.9, a + hw, roadTop + 1); c.closePath(); c.fill(); });
+        }
         car(pL + CAR, 'lead', C.text3, roadTop);
         if (rp !== null) car(rp, 'rec', C.text, roadTop);
         let pE = null;

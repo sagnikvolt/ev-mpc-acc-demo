@@ -1,0 +1,169 @@
+{
+ "name": "train_1_start",
+ "title": "Train it before a run: the training settings on the left",
+ "width": 1366,
+ "height": 900,
+ "theme": "dark",
+ "items": [
+  {
+   "n": 1,
+   "side": "r",
+   "label": "Model",
+   "text": "Model: the learner to train (LightGBM (400 trees); Ridge; KNN (k=25); SVR (RBF, 8,000-sample subset)). LightGBM is the one the paper uses.",
+   "selector": "#model",
+   "bbox": {
+    "x": 16,
+    "y": 195,
+    "width": 307,
+    "height": 36
+   },
+   "anchor": {
+    "x": 323,
+    "y": 213.0
+   },
+   "marker": {
+    "x": 353,
+    "y": 213.0,
+    "r": 13
+   }
+  },
+  {
+   "n": 2,
+   "side": "r",
+   "label": "Target",
+   "text": "Target: \"physics + ML residual\" learns only what the physics formula gets wrong; \"pure ML (no physics)\" learns battery power from scratch.",
+   "selector": "#tmode",
+   "bbox": {
+    "x": 16,
+    "y": 261,
+    "width": 307,
+    "height": 36
+   },
+   "anchor": {
+    "x": 323,
+    "y": 279.0
+   },
+   "marker": {
+    "x": 353,
+    "y": 279.0,
+    "r": 13
+   }
+  },
+  {
+   "n": 3,
+   "side": "r",
+   "mx": 350,
+   "label": "Amount of data",
+   "text": "Amount of data: how many training samples to use, always whole trips, from a small part up to all of it. More data usually lowers the error, and takes longer.",
+   "selector": ".rail label.field:has(#size)",
+   "bbox": {
+    "x": 16,
+    "y": 342,
+    "width": 307,
+    "height": 42
+   },
+   "anchor": {
+    "x": 323,
+    "y": 363.0
+   },
+   "marker": {
+    "x": 350,
+    "y": 363.0,
+    "r": 13
+   }
+  },
+  {
+   "n": 4,
+   "side": "r",
+   "mx": 350,
+   "label": "Importance",
+   "text": "Also compute the grouped permutation importance: which inputs the model leans on. It adds time, so untick it for a quick run.",
+   "selector": ".rail label.check:has(#imp)",
+   "bbox": {
+    "x": 16,
+    "y": 457,
+    "width": 307,
+    "height": 20
+   },
+   "anchor": {
+    "x": 323,
+    "y": 467.0
+   },
+   "marker": {
+    "x": 350,
+    "y": 467.0,
+    "r": 13
+   }
+  },
+  {
+   "n": 5,
+   "side": "t",
+   "dx": 0,
+   "dy": -34,
+   "label": "Train on my device",
+   "text": "Train on my device starts the training in your browser. It learns from the training trips and is scored on trips it never saw. The first time, scikit-learn and LightGBM are downloaded.",
+   "selector": "#train",
+   "bbox": {
+    "x": 16,
+    "y": 840,
+    "width": 307,
+    "height": 44
+   },
+   "anchor": {
+    "x": 169.5,
+    "y": 840
+   },
+   "marker": {
+    "x": 169.5,
+    "y": 806,
+    "r": 13
+   }
+  },
+  {
+   "n": 6,
+   "side": "r",
+   "label": "Status",
+   "text": "The status chip shows Loading, Idle, Training or Done.",
+   "selector": "#tchip",
+   "bbox": {
+    "x": 262.2,
+    "y": 69,
+    "width": 60.8,
+    "height": 24
+   },
+   "anchor": {
+    "x": 323.0,
+    "y": 81.0
+   },
+   "marker": {
+    "x": 353.0,
+    "y": 81.0,
+    "r": 13
+   }
+  },
+  {
+   "n": 7,
+   "side": "r",
+   "dx": -34,
+   "dy": 0,
+   "label": "Keep the engine on this device",
+   "text": "Optional: save the engine in your browser so the next visit starts without downloading. \"Not now\" saves nothing. Remove it any time on About.",
+   "selector": "#keepbar",
+   "bbox": {
+    "x": 368,
+    "y": 179.8,
+    "width": 955,
+    "height": 106
+   },
+   "anchor": {
+    "x": 1323,
+    "y": 232.8
+   },
+   "marker": {
+    "x": 1289,
+    "y": 232.8,
+    "r": 13
+   }
+  }
+ ]
+}

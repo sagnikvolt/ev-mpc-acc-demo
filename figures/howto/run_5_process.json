@@ -1,0 +1,79 @@
+{
+ "name": "run_5_process",
+ "title": "Run it process pane",
+ "width": 1366,
+ "height": 900,
+ "theme": "dark",
+ "items": [
+  {
+   "n": 1,
+   "side": "l",
+   "mx": 355,
+   "label": "Process view",
+   "text": "The Process view stays after a run, so you can read what happened.",
+   "selector": "#procbar .seg",
+   "bbox": {
+    "x": 368,
+    "y": 179.8,
+    "width": 174.1,
+    "height": 44
+   },
+   "anchor": {
+    "x": 368,
+    "y": 201.8
+   },
+   "marker": {
+    "x": 355,
+    "y": 201.8,
+    "r": 13
+   }
+  },
+  {
+   "n": 2,
+   "side": "r",
+   "dx": -60,
+   "dy": -30,
+   "label": "Elapsed time",
+   "text": "The time shown is the real time of this run on your computer.",
+   "selector": "#proc .proc-head",
+   "bbox": {
+    "x": 389,
+    "y": 258.8,
+    "width": 913,
+    "height": 31
+   },
+   "anchor": {
+    "x": 1302,
+    "y": 274.3
+   },
+   "marker": {
+    "x": 1242,
+    "y": 244.3,
+    "r": 13
+   }
+  },
+  {
+   "n": 3,
+   "side": "l",
+   "mx": 355,
+   "label": "One step per controller",
+   "text": "One step per controller, with a plain description of what it does and the time it took. The first step loads the lead-car trace. Below the steps, a log lists the engine's own messages with times; it is a real log, not an animation.",
+   "selector": "#proc-st li:nth-child(5)",
+   "bbox": {
+    "x": 389,
+    "y": 619.8,
+    "width": 913,
+    "height": 100
+   },
+   "anchor": {
+    "x": 389,
+    "y": 669.8
+   },
+   "marker": {
+    "x": 355,
+    "y": 669.8,
+    "r": 13
+   }
+  }
+ ]
+}

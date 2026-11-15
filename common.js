@@ -1,16 +1,22 @@
 'use strict';
 /* Shared code for every page: helpers, the engine (worker.js, Pyodide) on /run/ and /train/ only, CSV export, lightbox, self-test hook. All simulation and training run on the visitor's device. */
 const $ = id => document.getElementById(id);
+const SITE_V = '20261115m';   // same as VER in build_site.py (the build checks it)
 const ARMS = {
   acc: { name: 'Tuned ACC', c: 'var(--c-acc)', w: 1.5, dash: '6 4' }, smc: { name: 'SMC', c: 'var(--c-smc)', w: 1.5, dash: '1.5 3.5' }, sac42: { name: 'Plain SAC (seed 42)', c: 'var(--c-sac42)', w: 1.5, dash: '9 3 1.5 3' },
   safesac42: { name: 'Safe SAC (seed 42)', c: 'var(--c-safesac42)', w: 1, dash: '12 4' }, mpc_const: { name: 'MPC const-speed (our design car)', c: 'var(--c-mpc_const)', w: 2.25 },
-  mpc_oracle: { name: 'MPC oracle (ceiling, not deployable)', c: 'var(--c-mpc_oracle)', w: 1, dash: '3 3' }
+  mpc_oracle: { name: 'MPC oracle (ceiling, not deployable)', c: 'var(--c-mpc_oracle)', w: 1, dash: '3 3' },
+  /* Round m: arms that exist only on the speed-breaker road (the paper's S1b arms, plus two contrasts that ignore the breakers) */
+  acc_map: { name: 'Tuned ACC, knows the breakers', c: 'var(--c-acc)', w: 1.5, dash: '6 4' }, mpc_map_L: { name: 'MPC const-speed, knows the breakers (our design car)', c: 'var(--c-mpc_const)', w: 2.25 },
+  mpc_oracle_map: { name: 'MPC oracle, knows the breakers (ceiling)', c: 'var(--c-mpc_oracle)', w: 1, dash: '3 3' }, acc_blind: { name: 'Tuned ACC, ignores the breakers (contrast)', c: 'var(--c-acc)', w: 1, dash: '2 3' },
+  mpc_blind: { name: 'MPC const-speed, ignores the breakers (contrast)', c: 'var(--c-mpc_const)', w: 1.25, dash: '2 3' }
 };
-const SHORT = { acc: 'Tuned ACC', smc: 'SMC', sac42: 'Plain SAC', safesac42: 'Safe SAC', mpc_const: 'MPC (ours)', mpc_oracle: 'MPC oracle' };
+const SHORT = { acc: 'Tuned ACC', smc: 'SMC', sac42: 'Plain SAC', safesac42: 'Safe SAC', mpc_const: 'MPC (ours)', mpc_oracle: 'MPC oracle', acc_map: 'ACC + map', mpc_map_L: 'MPC + map', mpc_oracle_map: 'Oracle + map', acc_blind: 'ACC, no map', mpc_blind: 'MPC, no map' };
 const REC = { n: 'Recorded follower', name: 'Recorded follower', c: 'var(--c-recorded)', w: 1.5 }, LEAD = { name: 'Lead', c: 'var(--lead)', w: 1 };
 const swatch = o => `<svg class="sw" viewBox="0 0 24 8" aria-hidden="true"><line x1="0" x2="24" y1="4" y2="4" style="stroke:${o.c};stroke-width:${o.w || 1.5};stroke-linecap:round"${o.dash ? ` stroke-dasharray="${o.dash}"` : ''}/></svg>`;
 document.querySelectorAll('[data-arm]').forEach(e => { e.innerHTML = swatch(ARMS[e.dataset.arm]); });
 const ARM_ORDER = ['acc', 'smc', 'sac42', 'safesac42', 'mpc_const', 'mpc_oracle'];
+const ROAD_ORDER = ['acc_map', 'mpc_map_L', 'mpc_oracle_map', 'acc_blind', 'mpc_blind'];
 const SIZES = [10000, 25000, 50000, 100000, 0];
 /* Desktop = wide viewport and a fine pointer; ?engine=1 forces the engine on for testing on any device. Only /run/ and /train/ start the engine (body data-engine="1"). */
 const DESKTOP = /[?&]engine=1(&|$)/.test(location.search) || (matchMedia('(min-width: 900px)').matches && matchMedia('(pointer: fine)').matches);
@@ -32,7 +38,7 @@ const pct = (a, b) => (100 * (a - b) / b);
 const sgn = x => (x > 0 ? '+' : '') + x.toFixed(2).replace('-', '\u2212') + '%';
 
 /* ---------------- worker plumbing ---------------- */
-const worker = ENGINE && DESKTOP ? new Worker('/worker.js?v=20261114k', { type: 'module' }) : null;   // phones and tablets never create the worker, so Pyodide and the data files are never requested
+const worker = ENGINE && DESKTOP ? new Worker('/worker.js?v=' + SITE_V, { type: 'module' }) : null;   // phones and tablets never create the worker, so Pyodide and the data files are never requested
 let nextId = 1; const pending = new Map(); let readyRes, readyRej; const ready = new Promise((a, b) => { readyRes = a; readyRej = b; });
 function setBar(frac, msg) { $('lbar').style.transform = 'scaleX(' + frac.toFixed(3) + ')'; $('lmsg').textContent = readyInfo ? msg : 'Loading the engine… (first visit downloads ~30 MB)'; if (!readyInfo) setChip('loading', 'Loading engine ' + Math.round(frac * 100) + '%'); if (progressSink) progressSink(frac, msg); }
 if (worker) worker.onmessage = e => {
@@ -40,12 +46,13 @@ if (worker) worker.onmessage = e => {
   if (m.type === 'progress') { setBar(m.frac, m.msg); if (Proc.running) Proc.log(m.msg); }
   else if (m.type === 'log') Proc.log(m.msg);
   else if (m.type === 'ready') { readyInfo = m; WINDOWS = m.windows; PYV = m.pyodide; setBar(1, 'Engine ready · ' + m.secs.toFixed(1) + ' s on your device'); $('lbar').parentNode.style.display = 'none'; readyRes(m); READY.forEach(f => f()); }
+  else if (m.type === 'urls') { const p = pending.get(m.id); if (p) { pending.delete(m.id); p.res(m); } }
   else if (m.type === 'result') { const p = pending.get(m.id); if (p) { pending.delete(m.id); p.res(m); } }
   else if (m.type === 'error') { const p = pending.get(m.id); if (p) { pending.delete(m.id); p.rej(new Error(m.msg)); } else { $('lmsg').innerHTML = '<span class="err">Could not start the Python runtime: ' + m.msg + '</span>'; readyRej(new Error(m.msg)); } }
 };
 if (worker) worker.onerror = e => { $('lmsg').innerHTML = '<span class="err">Worker error: ' + (e.message || e) + '</span>'; };
 function call(msg) { const id = nextId++; return new Promise((res, rej) => { pending.set(id, { res, rej }); worker.postMessage(Object.assign({ id }, msg)); }); }
-if (ENGINE && DESKTOP) Promise.all([fetch('/data/reference.json').then(r => r.json()), fetch('/data/ml_reference.json').then(r => r.json())]).then(([a, b]) => { REF = a; MLREF = b; });
+if (ENGINE && DESKTOP) Promise.all([fetch('/data/reference.json?v=' + SITE_V).then(r => r.json()), fetch('/data/ml_reference.json?v=' + SITE_V).then(r => r.json())]).then(([a, b]) => { REF = a; MLREF = b; });
 if (worker) worker.postMessage({ cmd: 'init' });
 
 /* ---------------- CSV helper ---------------- */
@@ -63,6 +70,86 @@ const EVLB = (function () {
   const btns = [...document.querySelectorAll('.gal .gal-b')], list = btns.map(b => { const im = b.querySelector('img'); return { src: im.currentSrc || im.src, alt: im.alt, cap: b.dataset.cap || '', im }; });
   btns.forEach((b, i) => { b.onclick = () => { list.forEach(l => { l.src = l.im.currentSrc || l.im.src; }); open(list, i); }; });
   return { open };
+})();
+
+
+
+/* ---------------- Keep the engine on this device (opt-in; service worker /sw.js + Cache Storage; no cookies) ----------------
+   Off until the visitor ticks the box and presses "Keep it". The choice is a flag in localStorage (wrapped in try/catch). "Not now" hides the banner for this visit only and stores nothing.
+   What is saved: the Python runtime and packages (jsDelivr), our py/ and data/ files and the pages' own scripts. "Remove" deletes the caches, unregisters the worker and clears the flag. */
+const KEEP = (function () {
+  const FLAG = 'ev_keep_engine', BYTES = 'ev_keep_bytes', CAN = !!(window.isSecureContext && 'serviceWorker' in navigator && 'caches' in window);
+  const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, lsSet = (k, v) => { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }, lsDel = k => { try { localStorage.removeItem(k); } catch (e) { } };
+  let declined = false; try { declined = sessionStorage.getItem('ev_keep_no') === '1'; } catch (e) { }
+  const mb = b => { const x = b / 1048576; return x >= 10 ? x.toFixed(0) : x.toFixed(1); };
+  let SZ = null; fetch('/data/engine_size.json?v=' + SITE_V).then(r => r.ok ? r.json() : null).then(d => { SZ = d; paint(); }).catch(() => { });
+  const isOn = () => lsGet(FLAG) === '1';
+  const expect = () => { if (!SZ) return null; return document.body.dataset.page === 'train' ? SZ.train_bytes : SZ.run_bytes; };
+  async function measure() {
+    let n = 0; for (const k of await caches.keys()) { if (!k.startsWith('ev-')) continue; const c = await caches.open(k); for (const rq of await c.keys()) { const r = await c.match(rq); if (r) n += (await r.clone().blob()).size; } } return n;
+  }
+  let state = 'off', files = 0, total = 0, msg = '';   // off | saving | on
+  async function collect() {   // put every file the page and the worker have fetched into the caches (skips what is already there)
+    let urls = [];
+    if (ENGINE && DESKTOP && typeof worker !== 'undefined' && worker) { await ready; const r = await call({ cmd: 'urls' }); urls = r.urls || []; }
+    const page = performance.getEntriesByType('resource').map(r => r.name).filter(u => u.startsWith(location.origin) && /[?&]v=/.test(u)); urls = [...new Set(urls.concat(page, [location.href]))]; total = urls.length; files = 0;
+    const cPy = await caches.open('ev-pyodide-v314.0.7'), cSite = await caches.open('ev-site-' + SITE_V);
+    for (const u of urls) {
+      const c = u.startsWith(location.origin) ? cSite : cPy, rq = new Request(u); msg = 'Saving file ' + (files + 1) + ' of ' + total; paint();
+      if (!(await c.match(rq, u === location.href ? { ignoreSearch: true } : undefined))) { const r = await fetch(rq); if (r.status === 200) await c.put(rq, r); }
+      files++;
+    }
+  }
+  async function warm() {
+    state = 'saving'; msg = 'Starting...'; paint();
+    try {
+      await navigator.serviceWorker.register('/sw.js?v=' + SITE_V, { scope: '/' }); await navigator.serviceWorker.ready;
+      if (navigator.storage && navigator.storage.persist) { try { await navigator.storage.persist(); } catch (e) { } }
+      msg = 'Waiting for the engine to finish loading...'; paint(); await collect();
+      const b = await measure(); lsSet(BYTES, String(b)); state = 'on';
+    } catch (err) { state = 'off'; msg = 'Could not save: ' + (err && err.message || err); lsDel(FLAG); }
+    paint();
+  }
+  async function rewarm() { if (!isOn() || state === 'saving') return; try { await collect(); const b = await measure(); lsSet(BYTES, String(b)); state = 'on'; paint(); } catch (e) { } }
+  async function remove() {
+    try { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); } catch (e) { }
+    try { for (const k of await caches.keys()) if (k.startsWith('ev-')) await caches.delete(k); } catch (e) { }
+    lsDel(FLAG); lsDel(BYTES); state = 'off'; declined = false; try { sessionStorage.removeItem('ev_keep_no'); } catch (e) { } paint();
+  }
+  function optIn() { if (!lsSet(FLAG, '1')) { msg = 'This browser does not let the page save a choice, so nothing was saved.'; paint(); return; } warm(); }
+  /* the three places: banner (Run it, Train it), rail status (same pages), About */
+  function html(where) {
+    const b = lsGet(BYTES), e = expect(), sz = b ? mb(+b) : (e ? mb(e) : null);
+    if (state === 'saving') return `<span class="keep-s">Saving the engine on this device... <span class="mono" role="status">${msg}</span></span>`;
+    if (state === 'on' || isOn()) return `<span class="keep-s"><i class="keep-dot" aria-hidden="true"></i>Engine saved on this device${sz ? ' (' + sz + ' MB)' : ''}</span><button type="button" class="alt sm" data-keep="remove">Remove</button>`;
+    return '';
+  }
+  function paint() {
+    if (!CAN) { const a = $('keep-about'); if (a) a.innerHTML = '<p class="lim mut">This browser cannot keep the engine on the device (it needs a secure page with service workers and Cache Storage).</p>'; return; }
+    const on = state === 'on' || state === 'saving' || isOn(), e = expect(), sz = e ? mb(e) : null, size = sz ? 'About ' + sz + ' MB' : 'Some tens of MB';
+    const bn = $('keepbar'); if (bn) { bn.hidden = on || declined || !(ENGINE && DESKTOP); if (!bn.hidden) { const t = bn.querySelector('.keep-sz'); if (t) t.textContent = size; const er = bn.querySelector('.keep-err'); if (er) er.textContent = msg && state === 'off' ? msg : ''; } }
+    const rs = $('keepstat'); if (rs) { rs.hidden = !on; rs.innerHTML = on ? html('rail') : ''; }
+    const ab = $('keep-about'); if (ab) {
+      ab.innerHTML = (on ? `<div class="keep-row">${html('about')}</div>` : `<div class="keep-row"><label class="check"><input type="checkbox" id="keep-ab-tick"><span>Keep the engine on this device. ${size} is saved in this browser. The next visit then starts without downloading it.</span></label><button type="button" class="btn sm" id="keep-ab-go" disabled>Keep it</button></div>`) + (msg && state === 'off' ? `<p class="err lim">${msg}</p>` : '') +
+        (ENGINE ? '' : '<p class="lim mut">The files are saved the next time you open Run it or Train it.</p>');
+      const t = $('keep-ab-tick'), g = $('keep-ab-go'); if (t && g) { t.onchange = () => { g.disabled = !t.checked; }; g.onclick = () => { if (!ENGINE) { if (lsSet(FLAG, '1')) { navigator.serviceWorker.register('/sw.js?v=' + SITE_V, { scope: '/' }).then(() => { state = 'on'; paint(); }).catch(er => { lsDel(FLAG); msg = 'Could not turn it on: ' + er.message; paint(); }); } } else optIn(); }; }
+    }
+    document.querySelectorAll('[data-keep=remove]').forEach(b => { b.onclick = remove; });
+  }
+  function mount() {
+    if (!CAN) { paint(); return; }
+    if (ENGINE && DESKTOP) {
+      const t = document.querySelector('.stage-title');
+      if (t && !$('keepbar')) t.insertAdjacentHTML('afterend', '<div class="keepbar" id="keepbar" role="region" aria-label="Keep the engine on this device" hidden><p class="keep-q"><strong>Keep the engine on this device?</strong> <span class="keep-sz">About 30 MB</span> is saved in your browser so the next visit starts without downloading. You can remove it any time on <a href="/about/#h-keep">About</a>.</p><div class="keep-act"><label class="check"><input type="checkbox" id="keep-tick"><span>Yes, save it in this browser</span></label><button type="button" class="btn sm" id="keep-go" disabled>Keep it</button><button type="button" class="alt sm" id="keep-no">Not now</button></div><p class="err lim keep-err" role="alert"></p></div>');
+      const lb = $('loadbox'); if (lb && !$('keepstat')) lb.insertAdjacentHTML('afterend', '<div class="keepstat" id="keepstat" hidden></div>');
+      const tk = $('keep-tick'), go = $('keep-go'), no = $('keep-no');
+      if (tk) tk.onchange = () => { go.disabled = !tk.checked; }; if (go) go.onclick = () => { if (tk.checked) optIn(); }; if (no) no.onclick = () => { declined = true; try { sessionStorage.setItem('ev_keep_no', '1'); } catch (e) { } paint(); };
+    }
+    if (isOn()) { state = 'on'; navigator.serviceWorker.register('/sw.js?v=' + SITE_V, { scope: '/' }).catch(() => { }); if (lsGet(BYTES) === null) measure().then(b => { if (b) { lsSet(BYTES, String(b)); paint(); } }); }
+    paint();
+  }
+  mount();
+  return { remove, optIn, measure, rewarm, get state() { return state; } };
 })();
 
 

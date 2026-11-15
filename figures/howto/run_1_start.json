@@ -1,0 +1,189 @@
+{
+ "name": "run_1_start",
+ "title": "Run it before a run: the settings on the left and the keep-the-engine box",
+ "width": 1366,
+ "height": 900,
+ "theme": "dark",
+ "items": [
+  {
+   "n": 1,
+   "side": "r",
+   "label": "Input",
+   "text": "Input chooses where the lead-car speed comes from: \"Window\", \"Upload\", \"MATLAB\". Start with \"Window\".",
+   "selector": ".rail .seg[aria-label=Input]",
+   "bbox": {
+    "x": 16,
+    "y": 173,
+    "width": 307,
+    "height": 42
+   },
+   "anchor": {
+    "x": 323,
+    "y": 194.0
+   },
+   "marker": {
+    "x": 353,
+    "y": 194.0,
+    "r": 13
+   }
+  },
+  {
+   "n": 2,
+   "side": "r",
+   "label": "Recorded follower type",
+   "text": "This filter narrows the window list to windows where the recorded follower was a commercial ACC, a human driver or a mix. \"all\" keeps every one of the 160 windows.",
+   "selector": "#filt",
+   "bbox": {
+    "x": 16,
+    "y": 245,
+    "width": 307,
+    "height": 36
+   },
+   "anchor": {
+    "x": 323,
+    "y": 263.0
+   },
+   "marker": {
+    "x": 353,
+    "y": 263.0,
+    "r": 13
+   }
+  },
+  {
+   "n": 3,
+   "side": "r",
+   "label": "Window",
+   "text": "A window is 120 seconds of real driving: the recorded speed of a lead car, and the recorded follower behind it. Pick one; its lead car is what every controller will follow. Window 33 is a good first one.",
+   "selector": "#win",
+   "bbox": {
+    "x": 16,
+    "y": 311,
+    "width": 307,
+    "height": 36
+   },
+   "anchor": {
+    "x": 323,
+    "y": 329.0
+   },
+   "marker": {
+    "x": 353,
+    "y": 329.0,
+    "r": 13
+   }
+  },
+  {
+   "n": 4,
+   "side": "r",
+   "label": "Road",
+   "text": "Road changes what the road looks like. \"Plain road\" is the recorded road. \"Speed breakers (paper scenario S1b)\" adds speed breakers as in the paper's test S1b. \"+ potholes (demo only)\" adds potholes on top; that part is demo only and not in the paper.",
+   "selector": "#road",
+   "bbox": {
+    "x": 16,
+    "y": 414,
+    "width": 307,
+    "height": 36
+   },
+   "anchor": {
+    "x": 323,
+    "y": 432.0
+   },
+   "marker": {
+    "x": 353,
+    "y": 432.0,
+    "r": 13
+   }
+  },
+  {
+   "n": 5,
+   "side": "r",
+   "label": "Controllers",
+   "text": "Tick the controllers you want to run, one tick box each (6). Fewer ticks run faster; the two MPC controllers take a few seconds each, the others a fraction of a second. After a run the same boxes show or hide a controller without running again.",
+   "selector": "#armset",
+   "bbox": {
+    "x": 16,
+    "y": 488,
+    "width": 307,
+    "height": 224
+   },
+   "anchor": {
+    "x": 323,
+    "y": 600.0
+   },
+   "marker": {
+    "x": 353,
+    "y": 600.0,
+    "r": 13
+   }
+  },
+  {
+   "n": 6,
+   "side": "t",
+   "dx": 0,
+   "dy": -34,
+   "label": "Run on my device",
+   "text": "Run on my device starts the simulation. It runs in your browser and nothing is sent anywhere. It is switched on once the engine has loaded (see 7).",
+   "selector": "#run",
+   "bbox": {
+    "x": 16,
+    "y": 840,
+    "width": 307,
+    "height": 44
+   },
+   "anchor": {
+    "x": 169.5,
+    "y": 840
+   },
+   "marker": {
+    "x": 169.5,
+    "y": 806,
+    "r": 13
+   }
+  },
+  {
+   "n": 7,
+   "side": "r",
+   "label": "Engine status",
+   "text": "The small status chip shows Loading, Idle, Running or Done. The engine (Python in your browser) downloads on your first visit, so wait for \"Idle\" before you press run.",
+   "selector": "#chip",
+   "bbox": {
+    "x": 262.2,
+    "y": 69,
+    "width": 60.8,
+    "height": 24
+   },
+   "anchor": {
+    "x": 323.0,
+    "y": 81.0
+   },
+   "marker": {
+    "x": 353.0,
+    "y": 81.0,
+    "r": 13
+   }
+  },
+  {
+   "n": 8,
+   "side": "r",
+   "dx": -34,
+   "dy": 0,
+   "label": "Keep the engine on this device",
+   "text": "Optional. Tick the box and press \"Keep it\" and your browser saves the engine, so the next visit starts without downloading. \"Not now\" hides the box for this visit and saves nothing. You can remove the saved files later on About.",
+   "selector": "#keepbar",
+   "bbox": {
+    "x": 368,
+    "y": 179.8,
+    "width": 955,
+    "height": 106
+   },
+   "anchor": {
+    "x": 1323,
+    "y": 232.8
+   },
+   "marker": {
+    "x": 1289,
+    "y": 232.8,
+    "r": 13
+   }
+  }
+ ]
+}

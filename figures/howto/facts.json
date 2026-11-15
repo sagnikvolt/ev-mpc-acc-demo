@@ -1,0 +1,37 @@
+{
+ "window": 33,
+ "n_windows": 160,
+ "window_seconds": 120,
+ "arms": 6,
+ "eta": "0.65",
+ "cap": "35",
+ "speeds": [
+  "1",
+  "2",
+  "5",
+  "10",
+  "20"
+ ],
+ "roads": [
+  "Plain road",
+  "Speed breakers (paper scenario S1b)",
+  "+ potholes (demo only)"
+ ],
+ "models": [
+  "LightGBM (400 trees)",
+  "Ridge",
+  "KNN (k=25)",
+  "SVR (RBF, 8,000-sample subset)"
+ ],
+ "targets": [
+  "physics + ML residual",
+  "pure ML (no physics)"
+ ],
+ "sizes": [
+  10000,
+  25000,
+  50000,
+  100000,
+  0
+ ]
+}

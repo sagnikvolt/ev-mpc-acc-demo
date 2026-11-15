@@ -1,0 +1,180 @@
+{
+ "name": "run_3_tiles_table",
+ "title": "Run it after a run: the result tiles, the tabs and the table",
+ "width": 1366,
+ "height": 900,
+ "theme": "dark",
+ "items": [
+  {
+   "n": 1,
+   "side": "tr",
+   "dx": -24,
+   "dy": 24,
+   "noarrow": true,
+   "label": "Our car",
+   "text": "Our car: the battery energy of the battery-aware MPC (our design car) on this window, in watt-hours per kilometre. Lower is better.",
+   "selector": "#tiles .tile:nth-child(1)",
+   "bbox": {
+    "x": 368,
+    "y": 119.8,
+    "width": 229.8,
+    "height": 96
+   },
+   "anchor": {
+    "x": 597.8,
+    "y": 119.8
+   },
+   "marker": {
+    "x": 573.8,
+    "y": 143.8,
+    "r": 13
+   }
+  },
+  {
+   "n": 2,
+   "side": "tr",
+   "dx": -24,
+   "dy": 24,
+   "noarrow": true,
+   "label": "vs normal car",
+   "text": "Against the recorded follower, replayed through the same battery model. A minus sign means our car used less energy.",
+   "selector": "#tiles .tile:nth-child(2)",
+   "bbox": {
+    "x": 609.8,
+    "y": 119.8,
+    "width": 229.8,
+    "height": 96
+   },
+   "anchor": {
+    "x": 839.6,
+    "y": 119.8
+   },
+   "marker": {
+    "x": 815.6,
+    "y": 143.8,
+    "r": 13
+   }
+  },
+  {
+   "n": 3,
+   "side": "tr",
+   "dx": -24,
+   "dy": 24,
+   "noarrow": true,
+   "label": "vs tuned ACC",
+   "text": "Against the tuned ACC controller on the same window.",
+   "selector": "#tiles .tile:nth-child(3)",
+   "bbox": {
+    "x": 851.5,
+    "y": 119.8,
+    "width": 229.8,
+    "height": 96
+   },
+   "anchor": {
+    "x": 1081.3,
+    "y": 119.8
+   },
+   "marker": {
+    "x": 1057.3,
+    "y": 143.8,
+    "r": 13
+   }
+  },
+  {
+   "n": 4,
+   "side": "tr",
+   "dx": -24,
+   "dy": 24,
+   "noarrow": true,
+   "label": "Computed on your device",
+   "text": "How long the run took on your computer.",
+   "selector": "#tiles .tile:nth-child(4)",
+   "bbox": {
+    "x": 1093.2,
+    "y": 119.8,
+    "width": 229.8,
+    "height": 96
+   },
+   "anchor": {
+    "x": 1323.0,
+    "y": 119.8
+   },
+   "marker": {
+    "x": 1299.0,
+    "y": 143.8,
+    "r": 13
+   }
+  },
+  {
+   "n": 5,
+   "side": "t",
+   "dx": -30,
+   "dy": -30,
+   "label": "Result tabs",
+   "text": "The tabs switch the view: Speed, Gap (to the lead car), Energy (cumulative), and Table. A MATLAB tab appears when you run a MATLAB check window.",
+   "selector": "#tab-speed",
+   "bbox": {
+    "x": 390,
+    "y": 249.8,
+    "width": 71.8,
+    "height": 32
+   },
+   "anchor": {
+    "x": 425.9,
+    "y": 249.8
+   },
+   "marker": {
+    "x": 395.9,
+    "y": 219.8,
+    "r": 13
+   }
+  },
+  {
+   "n": 6,
+   "side": "t",
+   "dx": 0,
+   "dy": -30,
+   "label": "Export CSV",
+   "text": "Export CSV saves the traces and the table as two files, built in your browser, so you can plot them yourself.",
+   "selector": "#export",
+   "bbox": {
+    "x": 1213.5,
+    "y": 249.8,
+    "width": 92.5,
+    "height": 32
+   },
+   "anchor": {
+    "x": 1259.8,
+    "y": 249.8
+   },
+   "marker": {
+    "x": 1259.8,
+    "y": 219.8,
+    "r": 13
+   }
+  },
+  {
+   "n": 7,
+   "side": "l",
+   "mx": 355,
+   "label": "Table",
+   "text": "The table has one row per controller. \"Stored Python result (paper)\" is the number the paper's own code gave for this window, and \"Browser vs stored\" is the difference. MPC rows can differ by a fraction of a percent because the browser uses another solver.",
+   "selector": "#tbl",
+   "bbox": {
+    "x": 385,
+    "y": 298.8,
+    "width": 921,
+    "height": 415
+   },
+   "anchor": {
+    "x": 385,
+    "y": 506.3
+   },
+   "marker": {
+    "x": 355,
+    "y": 506.3,
+    "r": 13
+   }
+  }
+ ]
+}

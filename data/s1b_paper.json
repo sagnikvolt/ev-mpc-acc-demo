@@ -1,0 +1,48 @@
+{
+ "max_mean_lead_ms": 20.0,
+ "n_windows": 42,
+ "arms": {
+  "acc_map": {
+   "n": 42,
+   "median_whkm": 139.7416962969571,
+   "vs_acc_map_median_pct": null,
+   "wilcoxon_p": null,
+   "unsafe": 0,
+   "cross_excess_mean": 1.2183758439357026
+  },
+  "cacc_map": {
+   "n": 42,
+   "median_whkm": 140.94573424909782,
+   "vs_acc_map_median_pct": -1.6887764515677695,
+   "wilcoxon_p": 0.010504371090064524,
+   "unsafe": 19,
+   "cross_excess_mean": 1.472873668405704
+  },
+  "mpc_map": {
+   "n": 42,
+   "median_whkm": 150.43911297544344,
+   "vs_acc_map_median_pct": 6.570753385478556,
+   "wilcoxon_p": 4.547473508864641e-13,
+   "unsafe": 2,
+   "cross_excess_mean": 6.067080849315881e-05
+  },
+  "mpc_map_L": {
+   "n": 42,
+   "median_whkm": 127.21566670708255,
+   "vs_acc_map_median_pct": -7.40253301720204,
+   "wilcoxon_p": 2.5011104298755527e-11,
+   "unsafe": 0,
+   "cross_excess_mean": 4.617111686602957e-05
+  },
+  "oracle_map": {
+   "n": 42,
+   "median_whkm": 115.99200681860131,
+   "vs_acc_map_median_pct": -17.80131272923058,
+   "wilcoxon_p": 4.547473508864641e-13,
+   "unsafe": 0,
+   "cross_excess_mean": 4.932639940274337e-05
+  }
+ },
+ "source": "results/gate3b/s1b_test_*.csv (python/s1b_summary.py)",
+ "caveat": "This is the paper's second pre-registered test of breakers (the first, S1, failed). The breakers are injected into recorded lead speeds; they are not recorded on real roads."
+}

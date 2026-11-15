@@ -1,0 +1,6 @@
+{
+ "run_bytes": 34182914,
+ "train_bytes": 47839259,
+ "measured": "2026-11-15, headless Chromium 1366x900 against a local server",
+ "how": "sum of the response sizes in Cache Storage (ev-pyodide-* and ev-site-*) after a real load and opt-in on Run it (run_bytes) and after opt-in plus one LightGBM training on Train it (train_bytes)"
+}

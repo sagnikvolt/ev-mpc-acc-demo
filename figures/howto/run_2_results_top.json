@@ -1,0 +1,222 @@
+{
+ "name": "run_2_results_top",
+ "title": "Run it after a run: the sliders, the road view and its controls",
+ "width": 1366,
+ "height": 900,
+ "theme": "dark",
+ "items": [
+  {
+   "n": 1,
+   "side": "r",
+   "mx": 350,
+   "label": "Regen efficiency",
+   "text": "Regen efficiency is the share of braking energy the car gets back into the battery. The paper setting is 0.65. Change it to see how the result depends on this assumption.",
+   "selector": ".rail label.field:has(#eta)",
+   "bbox": {
+    "x": 16,
+    "y": 629,
+    "width": 307,
+    "height": 42
+   },
+   "anchor": {
+    "x": 323,
+    "y": 650.0
+   },
+   "marker": {
+    "x": 350,
+    "y": 650.0,
+    "r": 13
+   }
+  },
+  {
+   "n": 2,
+   "side": "r",
+   "mx": 350,
+   "label": "Regen cap",
+   "text": "Regen cap is the most braking power the battery can take back, in kilowatts (paper setting 35). Harder braking is lost as heat.",
+   "selector": ".rail label.field:has(#cap)",
+   "bbox": {
+    "x": 16,
+    "y": 679,
+    "width": 307,
+    "height": 42
+   },
+   "anchor": {
+    "x": 323,
+    "y": 700.0
+   },
+   "marker": {
+    "x": 350,
+    "y": 700.0,
+    "r": 13
+   }
+  },
+  {
+   "n": 3,
+   "side": "r",
+   "mx": 350,
+   "label": "Use the paper setting",
+   "text": "\"Use the paper setting\" puts both sliders back. The stored paper numbers beside the table exist only at that setting.",
+   "selector": "#reset",
+   "bbox": {
+    "x": 40.5,
+    "y": 749,
+    "width": 124.5,
+    "height": 20
+   },
+   "anchor": {
+    "x": 165.0,
+    "y": 759.0
+   },
+   "marker": {
+    "x": 350,
+    "y": 759.0,
+    "r": 13
+   }
+  },
+  {
+   "n": 4,
+   "side": "r",
+   "mx": 350,
+   "label": "Last run details",
+   "text": "\"details\" opens the run queue: which controller ran, and how long each took.",
+   "selector": "#qsum",
+   "bbox": {
+    "x": 16,
+    "y": 802,
+    "width": 307,
+    "height": 28
+   },
+   "anchor": {
+    "x": 323,
+    "y": 816.0
+   },
+   "marker": {
+    "x": 350,
+    "y": 816.0,
+    "r": 13
+   }
+  },
+  {
+   "n": 5,
+   "side": "t",
+   "dx": 0,
+   "dy": -30,
+   "label": "Process or Results",
+   "text": "Process shows what the computer is doing while it runs. Results shows the numbers. The page switches to Results by itself when the run ends.",
+   "selector": "#procbar .seg",
+   "bbox": {
+    "x": 368,
+    "y": 65.8,
+    "width": 174.1,
+    "height": 44
+   },
+   "anchor": {
+    "x": 455.1,
+    "y": 65.8
+   },
+   "marker": {
+    "x": 455.1,
+    "y": 35.8,
+    "r": 13
+   }
+  },
+  {
+   "n": 6,
+   "side": "tr",
+   "dx": -8,
+   "dy": -30,
+   "label": "Road view",
+   "text": "The road view replays the window as a side view. Each controller has its own lane. The lead car is grey, our MPC car is teal, and the outline car is the recorded follower.",
+   "selector": "#rv-run .rv-cv",
+   "bbox": {
+    "x": 385,
+    "y": 142.8,
+    "width": 921,
+    "height": 386
+   },
+   "anchor": {
+    "x": 1306,
+    "y": 142.8
+   },
+   "marker": {
+    "x": 1298,
+    "y": 112.8,
+    "r": 13
+   }
+  },
+  {
+   "n": 7,
+   "side": "l",
+   "mx": 355,
+   "label": "Play and pause",
+   "text": "Play or pause the replay. It starts by itself when a run ends.",
+   "selector": "#rv-run .rv-play",
+   "bbox": {
+    "x": 385,
+    "y": 536.8,
+    "width": 32,
+    "height": 32
+   },
+   "anchor": {
+    "x": 385,
+    "y": 552.8
+   },
+   "marker": {
+    "x": 355,
+    "y": 552.8,
+    "r": 13
+   }
+  },
+  {
+   "n": 8,
+   "side": "t",
+   "fx": 0.55,
+   "dx": 0,
+   "dy": -26,
+   "label": "Replay speed",
+   "text": "Replay speed: 1x, 2x, 5x, 10x, 20x. 1x is real time; the faster speeds show the whole window quickly.",
+   "selector": "#rv-run .seg",
+   "bbox": {
+    "x": 429,
+    "y": 537.8,
+    "width": 200.4,
+    "height": 30
+   },
+   "anchor": {
+    "x": 539.2,
+    "y": 537.8
+   },
+   "marker": {
+    "x": 539.2,
+    "y": 511.8,
+    "r": 13
+   }
+  },
+  {
+   "n": 9,
+   "side": "b",
+   "fx": 0.88,
+   "dx": 0,
+   "dy": 30,
+   "label": "Time slider",
+   "text": "Drag the slider to jump to any moment. The cursor in the charts moves with it.",
+   "selector": "#rv-run .rv-sl",
+   "bbox": {
+    "x": 641.4,
+    "y": 540.8,
+    "width": 551.8,
+    "height": 24
+   },
+   "anchor": {
+    "x": 1127.0,
+    "y": 564.8
+   },
+   "marker": {
+    "x": 1127.0,
+    "y": 594.8,
+    "r": 13
+   }
+  }
+ ]
+}

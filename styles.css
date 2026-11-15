@@ -200,7 +200,7 @@ h1{font-size:2.125rem}.lead{font-size:16px;line-height:24px}
 .rv-t{font:400 12px/16px var(--mono);color:var(--text3);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;min-width:6ch}
 .rv-leg{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px;line-height:16px;color:var(--text2);margin-top:8px}
 .rv-sw{display:inline-block;box-sizing:border-box;width:14px;height:8px;border-radius:2px;margin-right:8px;vertical-align:middle}
-.rv-sw.is-lead{background:var(--text3)}.rv-sw.is-rec{border:1.5px solid var(--text)}.rv-sw.is-ours{background:var(--accent)}.rv-sw.is-other{background:var(--text2)}
+.rv-sw.is-lead{background:var(--text3)}.rv-sw.is-rec{border:1.5px solid var(--text)}.rv-sw.is-ours{background:var(--accent)}.rv-sw.is-other{background:var(--text2)}.rv-sw.is-bump{background:var(--text2);border-radius:7px 7px 0 0}.rv-sw.is-pit{background:#000;border:1px solid var(--text3);border-radius:50%}
 .gate{margin-top:24px;padding:20px 24px;border:1px solid var(--line);border-radius:16px;background:var(--card);box-shadow:var(--shadow)}
 .gate h3{margin:0 0 8px}.gate p{margin:0;font-size:14px;line-height:22px;color:var(--text2);max-width:46rem}
 
@@ -605,3 +605,24 @@ html{scrollbar-gutter:stable}
 
 .brand{display:inline-flex;align-items:center;gap:10px}.brand img{display:block;border-radius:6px}
 .nv-t td.nv-y{color:var(--text)}.nv-t td.nv-n{color:var(--text3)}.nv-t tr.hl td{color:var(--accent);font-weight:500}.nv-t tr.hl td:first-child{color:var(--text)}
+
+/* Round m: keep-the-engine banner and status, legend toggles, road select hints */
+.keepbar{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:12px 16px;margin:0 0 16px;display:flex;flex-wrap:wrap;gap:8px 24px;align-items:center;justify-content:space-between}
+.keepbar[hidden],.keepstat[hidden]{display:none}
+.keep-q{margin:0;font-size:13px;line-height:20px;color:var(--text2);max-width:46rem}.keep-q strong{color:var(--text)}
+.keep-act{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}.keep-act .check{margin:0}
+.keep-err{margin:0;flex-basis:100%}.keep-err:empty{display:none}
+.keepstat,.keep-row{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;font-size:12px;line-height:18px;color:var(--text2);margin:0 0 8px}
+.keep-row{font-size:14px;line-height:22px}.keep-row .check{margin:0}
+.keep-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:8px}
+.lgb{height:auto;min-height:24px;justify-content:flex-start;font:400 12px/16px var(--sans);color:var(--text2);background:transparent;border:0;padding:2px 6px;margin:-2px -6px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.lgb:hover:not(:disabled){background:var(--raised);color:var(--text)}.lgb:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.lgb.off{opacity:.5;text-decoration:line-through}
+tr.rowoff td{opacity:.45}
+
+/* Round m: how-to chapters */
+.ht-fig{margin:0 0 32px}.ht-fig .ov-h4{margin-top:0}
+.ht-fig .gal{grid-template-columns:1fr;max-width:62rem}.ht-fig .gal .gal-b{aspect-ratio:auto}
+.ht-list{list-style:none;margin:14px 0 0;padding:0;max-width:62rem;display:grid;gap:10px;counter-reset:ht}
+.ht-list li{position:relative;padding-left:40px;font-size:15px;line-height:24px;color:var(--text2)}.ht-list li b{color:var(--text)}
+.ht-list li::before{content:attr(data-n);position:absolute;left:0;top:0;width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--on-accent);font:600 14px/26px var(--sans);text-align:center}

@@ -1,0 +1,105 @@
+{
+ "name": "run_4_charts",
+ "title": "Run it speed chart with one controller hidden",
+ "width": 1366,
+ "height": 900,
+ "theme": "dark",
+ "items": [
+  {
+   "n": 1,
+   "side": "r",
+   "dx": 36,
+   "dy": 0,
+   "label": "Controller tick box",
+   "text": "After a run, unticking a controller hides it in the charts and the road view; ticking it shows it again. Nothing is run again.",
+   "selector": "label.arm:has(#arm_smc)",
+   "bbox": {
+    "x": 16,
+    "y": 554,
+    "width": 307,
+    "height": 28
+   },
+   "anchor": {
+    "x": 323,
+    "y": 568.0
+   },
+   "marker": {
+    "x": 359,
+    "y": 568.0,
+    "r": 13
+   }
+  },
+  {
+   "n": 2,
+   "side": "b",
+   "dx": 0,
+   "dy": 30,
+   "label": "Legend entry",
+   "text": "Clicking a legend entry does the same: the crossed-out name is hidden. The speed, gap and energy charts and the road view all follow.",
+   "selector": "#c1 .lgb[data-id=smc]",
+   "bbox": {
+    "x": 705.7,
+    "y": 235.8,
+    "width": 68.2,
+    "height": 24
+   },
+   "anchor": {
+    "x": 739.8,
+    "y": 259.8
+   },
+   "marker": {
+    "x": 739.8,
+    "y": 289.8,
+    "r": 13
+   }
+  },
+  {
+   "n": 3,
+   "side": "tr",
+   "dx": -40,
+   "dy": -30,
+   "label": "Chart",
+   "text": "Move the mouse over a chart to see the same moment in the road view. Speed is in metres per second.",
+   "selector": "#c1 svg[data-ml]",
+   "bbox": {
+    "x": 385,
+    "y": 289.8,
+    "width": 921,
+    "height": 320
+   },
+   "anchor": {
+    "x": 1306,
+    "y": 289.8
+   },
+   "marker": {
+    "x": 1266,
+    "y": 259.8,
+    "r": 13
+   }
+  },
+  {
+   "n": 4,
+   "side": "t",
+   "dx": 0,
+   "dy": -30,
+   "label": "Gap and Energy tabs",
+   "text": "Gap shows the distance to the lead car (the safe-gap rule is in the table note). Energy shows the cumulative battery energy.",
+   "selector": "#tab-gap",
+   "bbox": {
+    "x": 465.8,
+    "y": 188.8,
+    "width": 57.3,
+    "height": 32
+   },
+   "anchor": {
+    "x": 494.4,
+    "y": 188.8
+   },
+   "marker": {
+    "x": 494.4,
+    "y": 158.8,
+    "r": 13
+   }
+  }
+ ]
+}

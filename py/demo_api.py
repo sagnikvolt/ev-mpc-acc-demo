@@ -18,14 +18,17 @@ def _versions():
     import cvxpy, clarabel, scipy; return dict(numpy=np.__version__, scipy=scipy.__version__, cvxpy=cvxpy.__version__, clarabel=getattr(clarabel, '__version__', '?'))
 def window_list():
     Z = _S['Z']; return _dump([dict(idx=i, win=int(Z['win'][i]), campaign=str(Z['campaign'][i]), group=str(Z['group'][i]), vehicle=str(Z['vehicle'][i]), mean_vl=float(np.mean(Z['vl'][i]))) for i in range(len(Z['win']))])
-def run_window(arm, idx, eta, cap):
+def _lead_of(o, vl):
+    le = o.pop('lead_eff', None); return [float(x) for x in (le if le is not None else vl[::5])][:len(o['trace']['t'])]
+def run_window(arm, idx, eta, cap, road='plain'):
+    """road: 'plain' (default, the paper's setting), 'breakers' (S1b speed breakers, seed 7100 + window number) or 'potholes' (breakers + demo-only potholes)."""
     Z = _S['Z']; vl = Z['vl'][idx].astype(float)
     if arm == 'recorded': return _dump(C.recorded(Z['vf'][idx], Z['ivs'][idx], eta, cap, trace=True))
-    o = C.run_arm(arm, vl, eta, cap, _S['actors'], _S['gamma'], trace=True)
-    o['trace']['lead'] = [float(x) for x in vl[::5][:len(o['trace']['t'])]]; return _dump(o)
-def run_upload(arm, speeds_json, hz, unit, eta, cap):
-    vl = C.prepare_upload(json.loads(speeds_json), int(hz), unit); o = C.run_arm(arm, vl, eta, cap, _S['actors'], _S['gamma'], trace=True)
-    o['trace']['lead'] = [float(x) for x in vl[::5][:len(o['trace']['t'])]]; o['seconds_simulated'] = o['steps'] * 0.5; return _dump(o)
+    o = C.run_arm(arm, vl, eta, cap, _S['actors'], _S['gamma'], trace=True, road=dict(kind=road, seed=7100 + int(Z['win'][idx])))
+    o['trace']['lead'] = _lead_of(o, vl); return _dump(o)
+def run_upload(arm, speeds_json, hz, unit, eta, cap, road='plain', seed=7100):
+    vl = C.prepare_upload(json.loads(speeds_json), int(hz), unit); o = C.run_arm(arm, vl, eta, cap, _S['actors'], _S['gamma'], trace=True, road=dict(kind=road, seed=int(seed)))
+    o['trace']['lead'] = _lead_of(o, vl); o['seconds_simulated'] = o['steps'] * 0.5; return _dump(o)
 def check_upload(speeds_json, hz, unit):
     vl = C.prepare_upload(json.loads(speeds_json), int(hz), unit); return _dump(dict(seconds=(len(vl) - 1) / 10.0, vmax=float(vl.max()), vmean=float(vl.mean())))
 def load_bmw(path):

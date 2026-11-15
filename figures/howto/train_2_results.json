@@ -1,0 +1,180 @@
+{
+ "name": "train_2_results",
+ "title": "Train it after a training run: tiles, tabs and the comparison table",
+ "width": 1366,
+ "height": 900,
+ "theme": "dark",
+ "items": [
+  {
+   "n": 1,
+   "side": "tr",
+   "dx": -24,
+   "dy": 24,
+   "noarrow": true,
+   "label": "Held-out power RMSE",
+   "text": "Held-out power error (RMSE) in kilowatts on trips the model never saw. Lower is better.",
+   "selector": "#ttiles .tile:nth-child(1)",
+   "bbox": {
+    "x": 368,
+    "y": 169.8,
+    "width": 229.8,
+    "height": 110
+   },
+   "anchor": {
+    "x": 597.8,
+    "y": 169.8
+   },
+   "marker": {
+    "x": 573.8,
+    "y": 193.8,
+    "r": 13
+   }
+  },
+  {
+   "n": 2,
+   "side": "tr",
+   "dx": -24,
+   "dy": 24,
+   "noarrow": true,
+   "label": "Trip-energy error",
+   "text": "The typical error of the total energy of a whole trip (median of the absolute errors).",
+   "selector": "#ttiles .tile:nth-child(2)",
+   "bbox": {
+    "x": 609.8,
+    "y": 169.8,
+    "width": 229.8,
+    "height": 110
+   },
+   "anchor": {
+    "x": 839.6,
+    "y": 169.8
+   },
+   "marker": {
+    "x": 815.6,
+    "y": 193.8,
+    "r": 13
+   }
+  },
+  {
+   "n": 3,
+   "side": "tr",
+   "dx": -24,
+   "dy": 24,
+   "noarrow": true,
+   "label": "Paper, same setting",
+   "text": "What the paper got with the same model, target and data amount.",
+   "selector": "#ttiles .tile:nth-child(3)",
+   "bbox": {
+    "x": 851.5,
+    "y": 169.8,
+    "width": 229.8,
+    "height": 110
+   },
+   "anchor": {
+    "x": 1081.3,
+    "y": 169.8
+   },
+   "marker": {
+    "x": 1057.3,
+    "y": 193.8,
+    "r": 13
+   }
+  },
+  {
+   "n": 4,
+   "side": "tr",
+   "dx": -24,
+   "dy": 24,
+   "noarrow": true,
+   "label": "Computed on your device",
+   "text": "How long the training took on your computer.",
+   "selector": "#ttiles .tile:nth-child(4)",
+   "bbox": {
+    "x": 1093.2,
+    "y": 169.8,
+    "width": 229.8,
+    "height": 110
+   },
+   "anchor": {
+    "x": 1323.0,
+    "y": 169.8
+   },
+   "marker": {
+    "x": 1299.0,
+    "y": 193.8,
+    "r": 13
+   }
+  },
+  {
+   "n": 5,
+   "side": "t",
+   "dx": -30,
+   "dy": -30,
+   "label": "Result tabs",
+   "text": "Importance: which inputs mattered. Learning curve: error against data amount, with the paper's curve. Table: your run beside the paper. Runs: every run of this visit. MATLAB: MATLAB's own fit of the same models, when it exists.",
+   "selector": "#ttab-imp",
+   "bbox": {
+    "x": 390,
+    "y": 313.8,
+    "width": 106.0,
+    "height": 32
+   },
+   "anchor": {
+    "x": 443.0,
+    "y": 313.8
+   },
+   "marker": {
+    "x": 413.0,
+    "y": 283.8,
+    "r": 13
+   }
+  },
+  {
+   "n": 6,
+   "side": "t",
+   "dx": 0,
+   "dy": -30,
+   "label": "Export runs as CSV",
+   "text": "Export runs as CSV saves the runs of this visit as a file. Runs are not stored anywhere else and are lost when you close the page.",
+   "selector": "#texport",
+   "bbox": {
+    "x": 1167.3,
+    "y": 313.8,
+    "width": 138.7,
+    "height": 32
+   },
+   "anchor": {
+    "x": 1236.6,
+    "y": 313.8
+   },
+   "marker": {
+    "x": 1236.6,
+    "y": 283.8,
+    "r": 13
+   }
+  },
+  {
+   "n": 7,
+   "side": "l",
+   "mx": 355,
+   "label": "Table",
+   "text": "The table sets your run against the paper's stored result for the same setting. LightGBM on all the data should land almost exactly on the paper's number.",
+   "selector": "#tres",
+   "bbox": {
+    "x": 385,
+    "y": 362.8,
+    "width": 921,
+    "height": 492
+   },
+   "anchor": {
+    "x": 385,
+    "y": 608.8
+   },
+   "marker": {
+    "x": 355,
+    "y": 608.8,
+    "r": 13
+   }
+  }
+ ]
+}

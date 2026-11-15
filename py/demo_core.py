@@ -5,6 +5,7 @@ import os, sys, tempfile, warnings, numpy as np
 warnings.filterwarnings('ignore')
 HERE = os.path.dirname(os.path.abspath(__file__)); A = B = SF = SE = None; CVX = None
 ARMS = ('acc', 'smc', 'sac42', 'safesac42', 'mpc_const', 'mpc_oracle')
+ROAD_ARMS = ('acc_map', 'mpc_map_L', 'mpc_oracle_map', 'acc_blind', 'mpc_blind')   # Round m: only on the speed-breaker road (paper S1b arms + two 'ignores the breakers' contrasts)
 def init(solver_opts=None):
     """Import the science modules under a scratch HOME and install the CLARABEL patch. Call once."""
     global A, B, SF, SE, CVX
@@ -44,10 +45,27 @@ def prepare_upload(speeds, hz=10, unit='mps'):
     t = np.arange(len(x)) / hz; t10 = np.arange(0, t[-1] + 1e-9, 0.1); return np.interp(t10, t, np.clip(x, 0, None))
 class _Rec:
     def __init__(s): s.v = []; s.d = []
-def run_arm(arm, vl, eta=0.65, cap=35.0, actors=None, gamma=0.1, trace=False):
+def run_arm(arm, vl, eta=0.65, cap=35.0, actors=None, gamma=0.1, trace=False, road=None):
     """Run one arm on a 10 Hz lead trace. Returns the simulate() metrics dict (+ trace of state at each 0.5 s control step if trace)."""
     A.set_regen(float(eta), cap=float(cap)); vl = np.asarray(vl, float); rec = _Rec(); res = None
-    if arm in ('acc', 'smc', 'sac42', 'safesac42'):
+    kind = (road or {}).get('kind', 'plain'); bk = None; vl_raw = vl
+    if kind != 'plain':   # Round m: S1b speed breakers (paper's generator), optionally with demo-only potholes. The plain road never reaches this branch.
+        if arm not in ROAD_ARMS: raise ValueError('arm %s is not available on this road' % arm)
+        import scenarios as SC
+        vl, _, bk = SC.s1_breakers(vl_raw, np.random.default_rng(int(road['seed'])))
+    elif arm in ROAD_ARMS: raise ValueError('arm %s needs a road with speed breakers' % arm)
+    if kind != 'plain':
+        if arm in ('acc_map', 'acc_blind'):
+            base = B.acc_map_policy(0.4, 1.0) if arm == 'acc_map' else B.acc_policy(0.4, 1.0)
+            def pol(s): rec.v.append(float(s['v'])); rec.d.append(float(s['d'])); return base(s)
+            o = B.simulate(vl, pol, breakers=bk)
+        else:
+            class M(A.MPC):
+                def solve(s, v0, d0, *a, **k): rec.v.append(float(v0)); rec.d.append(float(d0)); return super().solve(v0, d0, *a, **k)
+            if arm == 'mpc_map_L': o = A.simulate(vl, M(), preview='constmap', use_map=True, breakers=bk)
+            elif arm == 'mpc_oracle_map': o = A.simulate(vl, M(), preview='oracle', use_map=True, breakers=bk)
+            else: o = A.simulate(vl, M(), preview='const', use_map=False, breakers=bk)
+    elif arm in ('acc', 'smc', 'sac42', 'safesac42'):
         if arm == 'acc': base = B.acc_policy(0.4, 1.0)
         elif arm == 'smc': base = B.smc_policy(0.3, 0.5, 2.0)
         elif arm == 'sac42': base = SE.sac_policy(actors['sac42'])
@@ -60,15 +78,27 @@ def run_arm(arm, vl, eta=0.65, cap=35.0, actors=None, gamma=0.1, trace=False):
             def solve(s, v0, d0, *a, **k): rec.v.append(float(v0)); rec.d.append(float(d0)); return super().solve(v0, d0, *a, **k)
         o = A.simulate(vl, M(), preview='const' if arm == 'mpc_const' else 'oracle')
     o = {k: (float(v) if isinstance(v, (int, float, np.floating, np.integer)) else v) for k, v in o.items()}
+    pits = None
+    if kind == 'potholes':
+        import road_demo as RD; pits = [p for p in RD.pothole_positions() if p[0] < o['dist_m'] + 5.0]
     if trace:
         v = rec.v + [o['v_end']]; d = rec.d + [o['dgap_end'] + 5.0 + 1.5 * o['v_end']]   # final gap = desired gap + gap error (D0=5, TH=1.5)
-        E = [0.0]
+        E = [0.0]; extra = 0.0; x = 0.0
         for k in range(len(v) - 1):
             e = E[-1]; va = v[k]
             for q in range(5):
-                v1 = va + (v[k + 1] - v[k]) / 5.0; e += float(A.pb_kw(A.pw_kw(va, v1, 0.1), 0.5 * (va + v1))) * 0.1 / 3.6; va = v1
+                v1 = va + (v[k + 1] - v[k]) / 5.0; vm = 0.5 * (va + v1); pw = A.pw_kw(va, v1, 0.1); e0 = float(A.pb_kw(pw, vm)); xn = x + vm * 0.1
+                if pits:   # demo-only potholes: extra rolling-resistance work over the part of this 0.1 s step that lies on a rough stretch (energy only)
+                    ov = sum(max(0.0, min(xn, b) - max(x, a_)) for a_, b in pits)
+                    if ov > 0: e1 = float(A.pb_kw(pw + RD.PIT_FORCE_N * ov / 0.1 / 1000.0, vm)); extra += (e1 - e0) * 0.1 / 3.6; e0 = e1
+                e += e0 * 0.1 / 3.6; va = v1; x = xn
             E.append(e)
         o['trace'] = dict(t=[0.5 * k for k in range(len(v))], v=v, gap=d, wh=E)
+        if pits:
+            o['pothole_wh'] = extra; o['whkm_adj_dry'] = o['whkm_adj']; o['E_wh'] += extra; o['whkm'] = o['E_wh'] / o['dist_m'] * 1000; o['whkm_adj'] += extra / o['dist_m'] * 1000
+    if kind != 'plain':
+        o['lead_eff'] = [float(q) for q in vl[::5]]
+        o['road'] = dict(kind=kind, breakers=[float(b) for b in bk], vb=4.2, potholes=[list(p) for p in (pits or [])], pit=RD.params() if pits is not None else None)
     return o
 
 # ---------------------------------------------------------------- training panel (BMW i3, fold 0 held out; same settings as python/ml_bench.py and python/feature_importance.py)

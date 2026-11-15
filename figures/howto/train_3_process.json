@@ -1,0 +1,55 @@
+{
+ "name": "train_3_process",
+ "title": "Train it process pane",
+ "width": 1366,
+ "height": 900,
+ "theme": "dark",
+ "items": [
+  {
+   "n": 1,
+   "side": "l",
+   "mx": 355,
+   "label": "Process view",
+   "text": "Process shows the steps of the training and how long each took; Results switches back to the numbers.",
+   "selector": "#procbar .seg",
+   "bbox": {
+    "x": 368,
+    "y": 179.8,
+    "width": 174.1,
+    "height": 44
+   },
+   "anchor": {
+    "x": 368,
+    "y": 201.8
+   },
+   "marker": {
+    "x": 355,
+    "y": 201.8,
+    "r": 13
+   }
+  },
+  {
+   "n": 2,
+   "side": "l",
+   "mx": 355,
+   "label": "Training steps",
+   "text": "Each step is one thing the engine really did, for example loading the BMW i3 data or fitting the model, with a plain description and its time. Below the steps, a log lists the engine's own messages with times.",
+   "selector": "#proc-st li:nth-child(2)",
+   "bbox": {
+    "x": 389,
+    "y": 359.8,
+    "width": 913,
+    "height": 80
+   },
+   "anchor": {
+    "x": 389,
+    "y": 399.8
+   },
+   "marker": {
+    "x": 355,
+    "y": 399.8,
+    "r": 13
+   }
+  }
+ ]
+}
