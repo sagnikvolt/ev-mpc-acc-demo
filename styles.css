@@ -690,3 +690,170 @@ main{view-transition-name:page-main}
 @keyframes lat{0%,100%{opacity:.25;transform:scale(.7)}50%{opacity:1;transform:scale(1.5)}}
 .rm .runbtn::before,.rm .runbtn::after{display:none}
 .rm .mo-pre{opacity:1;transform:none}.rm .dr-pre svg *{opacity:1}
+
+/* ===== Round p: Home scene (port of the VEYRA interactive car scene, Amir Mušić, MIT: github.com/amirmushichge/veyra-interactive-car). Everything is scoped to .vs.
+   The blue studio palette and Space Grotesk stay inside this section because the studio is baked into the images; the rest of the site keeps its own design. ===== */
+.vs{--vs-sky:#708fa2;--vs-acid:#edff39;--vs-ink:#fff;--vs-muted:#fff;--vs-panel:#35586e;--vs-line:#ffffff40;--vs-on-acid:#10190c;--vs-studio:#587890;--vs-r:12px;--vs-rc:7px;--vs-ease:cubic-bezier(.22,.7,.25,1);--vs-fast:180ms;--vs-enter:240ms;
+ position:relative;background:var(--vs-studio);color:var(--vs-ink);font-family:'Space Grotesk',var(--sans);font-weight:400;letter-spacing:-.03em;font-size:15px;line-height:1.4;text-rendering:optimizeLegibility;overflow:hidden;--vs-w:100%;--vs-h:56vw;--vs-intro-h:90px}
+.vs *,.vs *::before,.vs *::after{box-sizing:border-box}
+.vs h1,.vs h2,.vs h3,.vs p{font-family:inherit;letter-spacing:inherit;color:inherit;font-weight:400}
+:where(.vs) button{display:block;height:auto;padding:0;border:0;border-radius:0;background:none;color:inherit;font:inherit;letter-spacing:inherit;gap:0;justify-content:flex-start;align-items:normal;text-decoration:none;cursor:pointer;transition:none}
+:where(.vs) button:hover:not(:disabled),:where(.vs) button:active:not(:disabled){background:none;color:inherit}
+.vs .vs-hotspot:active:not(:disabled),.vs .vs-annotation:active:not(:disabled){transform:translate(-50%,-50%)}
+:where(.vs) button:disabled{cursor:default}
+.vs a{color:inherit;text-decoration:underline;text-underline-offset:3px}
+.vs a:hover{color:var(--vs-acid)}
+.vs :focus-visible{outline:2px solid var(--vs-acid);outline-offset:5px;border-radius:4px}
+.vs ::selection{background:var(--vs-acid);color:var(--vs-on-acid)}
+.vs-in{padding:0 clamp(24px,4vw,72px)}
+.vs-stage{position:relative;padding-top:12px}
+.vs-intro{display:flex;align-items:center;justify-content:space-between;gap:28px;padding:14px 0 18px;min-height:76px;width:var(--vs-w);margin:0 auto;transition:opacity .35s,transform .7s,filter .5s}
+.vs-intro.hide{opacity:0;transform:translateY(12px);filter:blur(5px);pointer-events:none}
+.vs-intro h1{font-size:clamp(28px,2.5vw,40px);line-height:.98;letter-spacing:-.03em;margin:0;flex:0 1 auto}
+.vs-intro-description{font-size:14px;line-height:1.4;margin:0;text-align:right;max-width:34ch;flex:0 0 auto}
+.vs-intro-description span{display:block}
+.vs-backslot{position:absolute;left:calc((100% - var(--vs-w)) / 2);top:22px;z-index:5}
+.vs-back{display:flex!important;align-items:center;gap:10px;min-height:44px;background:var(--vs-acid)!important;color:var(--vs-on-acid)!important;border:1px solid transparent;border-radius:var(--vs-rc);padding:10px 14px!important;font-size:14px;line-height:1.25;transition:background var(--vs-fast)}
+.vs-back:hover:not(:disabled){background:#f3ff86!important}
+.vs-back kbd{font:inherit;font-size:12px;border-left:1px solid #18394b38;padding-left:9px;margin-left:8px}
+.vs-back:disabled{opacity:.6}
+.vs-plane{position:relative;width:var(--vs-w);height:var(--vs-h);margin:0 auto;isolation:isolate}
+/* The display frame never resizes its contents. All media keep the same full coordinate plane. */
+.vs-media-envelope{position:absolute;inset:0;overflow:hidden;border-radius:16px;box-shadow:0 0 0 3px #fff;pointer-events:none;user-select:none}
+.vs-exterior-envelope{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.vs-car-visual,.vs-detail-visual{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.vs-car-image,.vs-detail-image{position:absolute;width:100%;height:100%;max-width:none;object-fit:contain;object-position:center;inset:0;pointer-events:none;user-select:none;display:block}
+.vs-car-visual{transform-origin:var(--focus-x,50%) var(--focus-y,50%);transition:transform 1.5s cubic-bezier(.65,0,.25,1)}
+.vs.phase-entering .vs-car-visual,.vs.phase-detail .vs-car-visual{transform:scale(1.5)}
+.vs-hover-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;opacity:0}
+.vs-appearance-visual{position:absolute;inset:0;opacity:0;transition:opacity .24s ease;pointer-events:none}
+.vs-appearance-visual.shown{opacity:1}
+.vs-appearance-visual img{width:100%;height:100%;object-fit:contain;display:block;max-width:none}
+.vs-detail-visual{opacity:0;transition:opacity .85s ease;background:var(--vs-sky)}
+.vs-detail-image{transform:scale(1.08);transition:transform 1.3s cubic-bezier(.22,1,.36,1)}
+.vs-detail-visual.shown{opacity:1}
+.vs-detail-visual.shown .vs-detail-image{transform:scale(1)}
+.vs-eyebrow{font-size:13px;line-height:1.35;margin:0 0 10px}
+.vs-hotlayer,.vs-annolayer{position:absolute;inset:0;pointer-events:none}
+.vs-hotlayer[hidden]{display:none}
+.vs-hotspot{position:absolute;transform:translate(-50%,-50%);z-index:3;display:flex!important;align-items:center!important;justify-content:center!important;width:48px;height:48px;border-radius:50%!important;pointer-events:auto;transition:opacity var(--vs-fast)}
+.vs-ring{position:relative;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;color:var(--vs-on-acid);background:var(--vs-acid);box-shadow:0 0 0 1.5px #10190c8c,0 0 0 5px #edff3914;transition:transform var(--vs-fast),box-shadow var(--vs-fast)}
+.vs-ring:after{content:'';position:absolute;inset:-5px;border:1px solid #edff3950;border-radius:50%;animation:vs-breath 5s ease-in-out infinite}
+@keyframes vs-breath{0%,100%{opacity:.2;transform:scale(1)}50%{opacity:.5;transform:scale(1.07)}}
+.vs-hotspot.active .vs-ring,.vs-hotspot:hover:not(:disabled) .vs-ring{transform:scale(1.06);box-shadow:0 0 0 1.5px #10190c8c,0 0 0 5px #edff3920}
+.vs-hotspot:disabled{opacity:.28;pointer-events:none}
+.vs-hotspot:disabled .vs-ring:after{animation:none;opacity:0}
+.vs-label{position:absolute;bottom:calc(100% + 2px);left:50%;transform:translate(-50%,4px);opacity:0;display:flex;gap:10px;align-items:center;white-space:nowrap;background:var(--vs-acid);color:var(--vs-on-acid);border-radius:var(--vs-rc);padding:11px 14px;font-size:14px;line-height:1.25;transition:opacity var(--vs-fast),transform var(--vs-enter) var(--vs-ease);pointer-events:none}
+.vs-hotspot.active .vs-label,.vs-hotspot:focus-visible .vs-label{opacity:1;transform:translate(-50%,0)}
+.vs-hotspot:focus-visible{outline-offset:2px;border-radius:50%}
+/* The appearance event owner covers the plane but does not intercept input: only its button, dock and a narrow corridor are hit-testable. */
+.vs-aphot{position:absolute;inset:0;pointer-events:none;z-index:3}
+.vs-aphot.expanded{z-index:6}
+.vs-aphot>.vs-hotspot{left:var(--anchor-x);top:var(--anchor-y)}
+.vs-aphot.expanded .vs-label{opacity:0}
+.vs-menu-bridge{position:absolute;inset:0 0 -20px;pointer-events:auto;clip-path:polygon(calc(var(--anchor-x) - 24px) calc(var(--anchor-y) - 12px),calc(var(--anchor-x) + 24px) calc(var(--anchor-y) - 12px),calc(50% + 156px) 100%,calc(50% - 156px) 100%)}
+.vs-ap-menu{position:absolute;top:calc(100% + 18px);left:50%;transform:translateX(-50%);width:312px;padding:10px 18px 12px;border:1px solid var(--vs-line);border-radius:var(--vs-r);background:var(--vs-panel);color:var(--vs-ink);box-shadow:0 8px 26px #213f5112;pointer-events:auto;animation:vs-menu-in var(--vs-enter) var(--vs-ease)}
+.vs-ap-heading{display:flex;align-items:center;justify-content:space-between;font-size:15px;line-height:1.3;gap:12px;min-height:30px}
+.vs-ap-close{display:grid!important;place-items:center;width:44px;height:44px;border-radius:var(--vs-rc)!important;margin:-7px -12px -7px 0;transition:background var(--vs-fast),color var(--vs-fast)}
+.vs .vs-ap-close:hover:not(:disabled){background:var(--vs-acid);color:var(--vs-on-acid)}
+.vs-ap-options{display:flex;gap:8px;justify-content:space-between;margin-top:8px}
+.vs-ap-option{display:grid!important;place-items:center;min-width:44px;height:44px!important;padding:5px!important;border:1px solid transparent!important;border-radius:50%!important;transition:border-color var(--vs-fast),background var(--vs-fast)}
+.vs .vs-ap-option:hover:not(:disabled){background:#ffffff1f}
+.vs .vs-ap-option.selected{border-color:var(--vs-acid)!important}
+.vs-ap-option:disabled{opacity:.4;cursor:wait!important}
+.vs-paint-chip{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;box-shadow:inset 0 0 0 1px #ffffff30}
+.vs-ap-menu.wheels .vs-ap-option{width:78px;height:70px!important;border-radius:var(--vs-rc)!important}
+.vs-wheel-chip{display:block;width:64px;height:58px;border-radius:4px;background-size:530% auto;background-position:48% 79%;background-repeat:no-repeat;background-color:#ffffff14}
+.vs-ap-caption{margin-top:9px;font-size:14px;line-height:1.4}
+.vs-ap-caption small{display:block;font-size:12px;margin-top:2px}
+@keyframes vs-menu-in{from{opacity:0;translate:0 5px}to{opacity:1;translate:0 0}}
+.vs-detail{overscroll-behavior:contain;padding:18px 20px 16px;background:rgba(20,46,66,.56);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border-radius:12px;position:absolute;z-index:4;right:calc((100% - var(--vs-w)) / 2 + 20px);top:calc(var(--vs-intro-h) + 20px);width:calc(var(--vs-w) * .32);max-width:400px;max-height:calc(var(--vs-h) - 52px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:#ffffff50 transparent;opacity:0;pointer-events:none;transform:translateY(15px);transition:opacity .65s,transform .8s;visibility:hidden}
+.vs-detail.shown{opacity:1;transform:translateY(0);pointer-events:auto;visibility:visible}
+.vs-detail h2{font-size:clamp(28px,2.3vw,38px);line-height:.92;letter-spacing:-.03em;margin:0 0 14px}
+.vs-detail h2 span{display:block}
+.vs-system-description{font-size:14px;line-height:1.4;margin:0 0 14px}
+.vs-part-list{border-top:1px solid var(--vs-line)}
+.vs-part-list button{width:100%;min-height:48px;border-bottom:1px solid var(--vs-line)!important;padding:12px 0!important;text-align:left;font-size:15px;line-height:1.35;transition:color var(--vs-fast)}
+.vs .vs-part-list button:hover:not(:disabled),.vs .vs-part-list button.selected{color:var(--vs-acid)}
+.vs-part-row{display:flex;align-items:center;gap:12px}
+.vs-part-row small{font-size:12px}
+.vs-part-row svg{margin-left:auto;flex-shrink:0;transition:transform var(--vs-enter)}
+.vs-part-list button.selected svg{transform:rotate(45deg)}
+.vs-part-description{display:block;font-size:14px;line-height:1.45;color:#fff;padding:10px 0 1px 26px}
+.vs-part-description[hidden]{display:none}
+.vs-benefit{margin-top:14px}
+.vs-benefit>span{font-size:13px}
+.vs-benefit p{font-size:14px;line-height:1.4;margin:6px 0}
+.vs-annotation{position:absolute;z-index:3;display:flex!important;align-items:center;gap:9px;transform:translate(-50%,-50%);padding:8px!important;min-width:44px;min-height:44px;border-radius:50%!important;pointer-events:auto}
+.vs-annotation>span:first-child{width:28px;height:28px;background:var(--vs-acid);color:var(--vs-on-acid);border-radius:50%;display:grid;place-items:center;font-size:12px;box-shadow:0 0 0 1.5px #10190c8c}
+.vs-annotation.open>span:first-child{box-shadow:0 0 0 4px #edff3928}
+.vs-annotation-label{font-size:14px;line-height:1.25;color:var(--vs-on-acid);background:var(--vs-acid);border-radius:var(--vs-rc);padding:10px 12px;white-space:nowrap;opacity:0;transition:opacity var(--vs-fast);position:absolute;bottom:100%;left:0;pointer-events:none}
+.vs-annotation:hover .vs-annotation-label,.vs-annotation:focus-visible .vs-annotation-label,.vs-annotation.open .vs-annotation-label{opacity:1}
+.vs-status{position:absolute;bottom:-34px;left:50%;transform:translateX(-50%);font-size:14px;display:flex;align-items:center;gap:10px;white-space:nowrap}
+.vs-status[hidden]{display:none}
+.vs-small-dot{width:5px;height:5px;border-radius:50%;background:var(--vs-acid);display:inline-block;flex-shrink:0}
+.vs-below{padding:56px 0 18px;width:var(--vs-w);margin:0 auto;transition:opacity var(--vs-fast)}
+.vs-note{margin:0 0 4px;font-size:14px;line-height:1.45;max-width:70ch}
+.vs-note strong{font-weight:400;border-bottom:1px solid #ffffff80}
+.vs-notes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;margin-top:28px}
+.vs-notes h3{font-size:16px;line-height:1.2;margin:0 0 9px}
+.vs-notes p{font-size:14px;line-height:1.45;margin:0;max-width:30ch}
+.vs-baseline{display:flex;justify-content:space-between;gap:16px 28px;flex-wrap:wrap;margin-top:26px;padding-top:15px;border-top:1px solid var(--vs-line);font-size:12.5px;line-height:1.45}
+.vs-baseline>span{max-width:62ch}
+.vs.menu-open .vs-below{opacity:0;visibility:hidden}
+.vs-error{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:30;background:var(--vs-panel);border:1px solid var(--vs-line);border-radius:var(--vs-r);color:var(--vs-ink);padding:12px 16px;display:flex;align-items:center;gap:16px;font-size:14px;line-height:1.4;width:max-content;max-width:calc(100% - 32px)}
+.vs-error[hidden]{display:none}
+.vs-error button{min-width:44px;height:44px!important;display:grid!important;place-items:center}
+.vs-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* below the scene: our own design again */
+.vs-next{padding-top:40px}
+.vs-next h2{font:500 20px/1.3 var(--sans);margin:0 0 6px}
+.vs-next p{margin:0 0 20px;max-width:46rem}
+@media(min-width:901px) and (max-height:780px){
+ .vs-intro h1{font-size:30px}.vs-intro-description{font-size:13px}
+ .vs-notes{gap:18px}.vs-notes h3{font-size:15px}.vs-notes p{font-size:13px}
+ /* short viewport: the cutaway copy flows below the frame; the media stay exactly in place */
+ .vs-detail{position:relative;right:auto;top:auto;width:var(--vs-w);max-width:none;max-height:none;overflow:visible;margin:calc(56px + 16px) auto 0;display:none;grid-template-columns:1fr 1fr;gap:36px;padding:20px 24px}
+ .vs.phase-detail .vs-detail,.vs.phase-returning .vs-detail{display:grid}
+ .vs.phase-detail .vs-below{padding-top:24px}
+}
+@media(max-width:900px){
+ .vs-in{padding:0 20px}
+ .vs-intro{display:block;min-height:0;padding-top:16px;padding-bottom:16px}
+ .vs-intro h1{font-size:clamp(30px,5.6vw,44px);max-width:none}
+ .vs-intro-description{margin-top:12px;text-align:left;max-width:none}
+ .vs-intro-description span{display:inline}.vs-intro-description span+span:before{content:' '}
+ .vs-backslot{left:0;top:16px}.vs-back kbd{display:none}
+ .vs-ap-menu{width:300px}
+ .vs-notes{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .vs-detail{position:relative;right:auto;top:auto;width:auto;max-width:620px;max-height:none;overflow:visible;margin:56px auto 0;padding:20px;display:none}
+ .vs.phase-detail .vs-detail,.vs.phase-returning .vs-detail{display:block}
+ .vs-detail h2{font-size:38px}.vs-detail h2 span{display:inline}.vs-detail h2 span+span:before{content:' '}
+ .vs-system-description{font-size:16px}.vs-benefit{margin-top:24px}
+ .vs-below{padding-top:40px}.vs.phase-detail .vs-below{padding-top:28px}
+ .vs-annotation-label{font-size:12px;padding:8px;max-width:180px;white-space:normal;text-align:left}
+ .vs-baseline{flex-direction:column}
+}
+@media(min-width:901px){
+ .vs-ap-menu{display:grid;grid-template-columns:230px 1fr;column-gap:24px;width:660px;padding:18px 54px 18px 18px}
+ .vs-ap-heading{grid-column:1;grid-row:1;min-height:20px;align-items:start}
+ .vs-ap-close{position:absolute;right:6px;top:6px;margin:0}
+ .vs-ap-options{grid-column:2;grid-row:1 / 3;align-self:center;margin-top:0}
+ .vs-ap-caption{grid-column:1;grid-row:2;margin-top:6px}
+ .vs-menu-bridge{clip-path:polygon(calc(var(--anchor-x) - 24px) calc(var(--anchor-y) - 12px),calc(var(--anchor-x) + 24px) calc(var(--anchor-y) - 12px),calc(50% + 330px) 100%,calc(50% - 330px) 100%)}
+}
+@media(max-width:480px){
+ .vs-intro h1{font-size:clamp(28px,8vw,36px)}
+ .vs-intro-description{font-size:13px}
+ .vs-media-envelope{border-radius:12px}
+ .vs-ap-menu{width:288px;padding:12px 16px 14px}
+ .vs-notes h3{font-size:15px}.vs-notes p{font-size:13px}.vs-notes{gap:22px 20px}
+ .vs-ring{width:26px;height:26px}.vs-label{font-size:13px}
+ .vs-detail h2{font-size:32px}
+}
+.vs.reduced .vs-car-visual{transform:none!important}
+.vs.reduced *,.vs.reduced *::before,.vs.reduced *::after{animation:none!important;transition-duration:.01ms!important}
+html.rm .vs-car-visual{transform:none!important}
+@media(prefers-reduced-motion:reduce){.vs *,.vs *::before,.vs *::after{animation:none!important;transition-duration:.01ms!important}.vs-car-visual{transform:none!important}}
+/* Round p: shared header at tablet widths. Between 641 and 960 px the brand, seven links and the GitHub link did not fit one row (page scrolled sideways at 768 px on every page); they now wrap exactly as they already do at 640 px and below. */
+@media(min-width:641px) and (max-width:960px){.nav .wrap{flex-wrap:wrap;height:auto;padding-top:12px;padding-bottom:8px;gap:8px 16px}.brand span{display:none}.gh{margin-left:auto;padding:6px 0}.links{order:3;width:100%;margin:0;overflow-x:auto;white-space:nowrap}.links a{padding:6px 8px}}

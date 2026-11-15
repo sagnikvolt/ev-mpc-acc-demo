@@ -1,7 +1,7 @@
 'use strict';
 /* Shared code for every page: helpers, the engine (worker.js, Pyodide) on /run/ and /train/ only, CSV export, lightbox, self-test hook. All simulation and training run on the visitor's device. */
 const $ = id => document.getElementById(id);
-const SITE_V = '20261115p';   // same as VER in build_site.py (the build checks it)
+const SITE_V = '20261115q';   // same as VER in build_site.py (the build checks it)
 const ARMS = {
   acc: { name: 'Tuned ACC', c: 'var(--c-acc)', w: 1.5, dash: '6 4' }, smc: { name: 'SMC', c: 'var(--c-smc)', w: 1.5, dash: '1.5 3.5' }, sac42: { name: 'Plain SAC (seed 42)', c: 'var(--c-sac42)', w: 1.5, dash: '9 3 1.5 3' },
   safesac42: { name: 'Safe SAC (seed 42)', c: 'var(--c-safesac42)', w: 1, dash: '12 4' }, mpc_const: { name: 'MPC const-speed (our design car)', c: 'var(--c-mpc_const)', w: 2.25 },
@@ -31,7 +31,7 @@ function applyGate() {
 function setChip(st, txt) { const c = $('chip'); if (!c) return; c.dataset.s = st; $('chiptxt').textContent = txt; }
 function setTChip(st, txt) { const c = $('tchip'); if (!c) return; c.dataset.s = st; $('tchiptxt').textContent = txt; }
 if (ENGINE && !DESKTOP) { applyGate(); setChip('idle', 'Not on this device'); setTChip('idle', 'Not on this device'); } else if (ENGINE) { setChip('loading', 'Loading engine 0%'); setTChip('loading', 'Loading engine'); }
-if (!DESKTOP && document.body.dataset.page === 'home') { const acts = document.querySelectorAll('.hero .actions a'); if (acts.length === 2) { acts[0].remove(); acts[1].classList.remove('alt'); } }
+if (!DESKTOP && document.body.dataset.page === 'replay') { const acts = document.querySelectorAll('.hero .actions a'); if (acts.length === 2) { acts[0].remove(); acts[1].classList.remove('alt'); } }
 let REF = null, MLREF = null, WINDOWS = [], PYV = '', readyInfo = null, progressSink = null;
 const fmt = (x, d = 2) => (x === null || x === undefined || Number.isNaN(x)) ? '-' : Number(x).toFixed(d);
 const pct = (a, b) => (100 * (a - b) / b);

@@ -57,7 +57,7 @@
 
  /* blur text on the Home headline */
  function blur() {
-  var h = PAGE === 'home' && $('#h1'); if (!h || h._bt) return; h._bt = 1; var parts = h.textContent.split(/(\s+)/), i = 0; h.textContent = '';
+  var h = PAGE === 'replay' && $('#h1'); if (!h || h._bt) return; h._bt = 1; var parts = h.textContent.split(/(\s+)/), i = 0; h.textContent = '';
   parts.forEach(function (w) { if (!w) return; if (/^\s+$/.test(w)) { h.appendChild(D.createTextNode(w)); return; } var s = D.createElement('span'); s.className = 'mo-bt'; s.style.setProperty('--i', i++); s.textContent = w; h.appendChild(s); });
  }
 
@@ -102,7 +102,7 @@
 
  /* dot grid behind the Home glass panels: dots near the cursor brighten (30 fps cap, paused when hidden/off-screen) */
  function dots() {
-  var b = PAGE === 'home' && $('.hero-band'); if (!b || $('.hero-dots') || RM()) return; var c = D.createElement('canvas'), bg = $('.hero-bg', b); c.className = 'hero-dots'; c.setAttribute('aria-hidden', 'true'); if (bg) bg.after(c); else b.prepend(c);
+  var b = PAGE === 'replay' && $('.hero-band'); if (!b || $('.hero-dots') || RM()) return; var c = D.createElement('canvas'), bg = $('.hero-bg', b); c.className = 'hero-dots'; c.setAttribute('aria-hidden', 'true'); if (bg) bg.after(c); else b.prepend(c);
   var x = c.getContext('2d'), w = 0, h = 0, mx = -999, my = -999, s = 0, tgt = 0, vis = true, last = 0, run = 0, S = 24, R = 150;
   function size() { var r = b.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1); w = r.width; h = r.height; c.width = Math.round(w * d); c.height = Math.round(h * d); x.setTransform(d, 0, 0, d, 0, 0); draw(); }
   function draw() {
