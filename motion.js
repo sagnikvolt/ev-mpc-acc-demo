@@ -80,10 +80,13 @@
     e.style.transitionDelay = Math.min(k++, 3) * 60 + 'ms'; e.classList.add('mo-t'); e.classList.remove('mo-pre');
     setTimeout(function () { e.classList.remove('mo-t'); e.style.transitionDelay = ''; }, 900);
    });
-  }, { threshold: [0, .15] });
+  }, { threshold: [0, .01, .02, .03, .05, .08, .1, .12, .15] });
   list.forEach(function (e) { e.classList.add('mo-pre'); io.observe(e); });
+  // safety net: anything still hidden that is on screen when scrolling stops (tall cards, jumps, smooth scroll) is shown at once
+  var sw = function () { $$('.mo-pre').forEach(function (e) { var r = e.getBoundingClientRect(); if (r.top < innerHeight - 40 && r.bottom > 40) { io.unobserve(e); e.classList.remove('mo-pre'); } }); }, st = 0;
+  addEventListener('scroll', function () { clearTimeout(st); st = setTimeout(sw, 180); }, { passive: true }); addEventListener('hashchange', function () { setTimeout(sw, 700); }); setTimeout(sw, 1500);
   var ch = $$('.ov-chart').filter(function (e) { return e.getBoundingClientRect().top > vh * .85; });
-  var io2 = new IntersectionObserver(function (es) { es.forEach(function (x) { if (x.isIntersecting && (x.intersectionRatio >= .15 || x.intersectionRect.height >= 120)) { io2.unobserve(x.target); drawIn(x.target); } }); }, { threshold: [0, .15] });
+  var io2 = new IntersectionObserver(function (es) { es.forEach(function (x) { if (x.isIntersecting && (x.intersectionRatio >= .15 || x.intersectionRect.height >= 120)) { io2.unobserve(x.target); drawIn(x.target); } }); }, { threshold: [0, .01, .02, .03, .05, .08, .1, .12, .15] });
   ch.forEach(function (e) { e.classList.add('dr-pre'); io2.observe(e); });
  }
  function drawIn(c) {
