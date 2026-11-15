@@ -1048,3 +1048,12 @@ html.rm .hs-ring:after{animation:none}
  .hs-grid{padding-top:12px;padding-bottom:12px}
  .hs-copy{padding:14px 20px 16px}
 }
+
+/* Home scene: the points appear when the pointer is over the scene (always on touch screens, with keyboard focus, and in detail views) */
+@media (hover:hover){
+.hs-hm .hs-hotlayer .hs-hotspot{opacity:0;transition:opacity 220ms var(--ease)}
+.hs-hm .hs-main:hover .hs-hotlayer .hs-hotspot,.hs-hm .hs-hotlayer:focus-within .hs-hotspot,.hs-hm .hs-hotlayer .hs-hotspot.active{opacity:1}
+.hs-hm.phase-overview .hs-stage::after{content:"Move the mouse over the scene to find 4 points";position:absolute;left:12px;bottom:12px;z-index:4;pointer-events:none;font:400 12px/16px var(--mono);color:var(--text2);background:color-mix(in srgb,var(--card) 82%,transparent);border:1px solid var(--line);border-radius:8px;padding:6px 10px;transition:opacity 220ms var(--ease)}
+.hs-hm.phase-overview .hs-stage:hover::after{opacity:0}
+.hs-hm .hs-stage{position:relative}
+}

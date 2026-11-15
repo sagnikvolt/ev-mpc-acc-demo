@@ -331,6 +331,17 @@
       return { g: g, wheels: wheels, body: body, roof: roof, glass: glass, tailM: tailM, rimM: rimM, rimR: rimR, fade: fade, bodyMesh: bodyMesh };
     }
     var lead = makeCar({ body: 0xaab2b8, roof: 0x2b3136 }), ours = makeCar({ body: P_.dark ? 0x1fb5a5 : 0x14a193, roof: 0xe9eff0 });
+    (function () {   // name badge on the back of our car (decoration): "SAGNIK"
+      var cv = document.createElement('canvas'); cv.width = 512; cv.height = 96; var x = cv.getContext('2d');
+      x.clearRect(0, 0, 512, 96); x.font = '600 64px "IBM Plex Sans", Arial, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+      if (x.letterSpacing !== undefined) x.letterSpacing = '18px';
+      var gr = x.createLinearGradient(0, 16, 0, 80); gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, '#c9d2d6'); x.fillStyle = gr; x.fillText('SAGNIK', 256 + 9, 50);
+      var tex = new THREE.CanvasTexture(cv); tex.anisotropy = 4; if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+      var bm = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false });
+      var badge = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.116), bm); badge.position.set(-2.275, 0.6, 0); badge.rotation.y = -Math.PI / 2; badge.renderOrder = 2;
+      ours.g.add(badge); ours.fade.push(bm);
+      if (document.fonts && document.fonts.load) document.fonts.load('600 64px "IBM Plex Sans"').then(function () { x.clearRect(0, 0, 512, 96); x.fillStyle = gr; x.fillText('SAGNIK', 256 + 9, 50); tex.needsUpdate = true; }).catch(function () { });
+    })();
     scene.add(lead.g, ours.g);
 
     // ---------- inside our car: battery pack, motor, cables and the energy-flow particles
