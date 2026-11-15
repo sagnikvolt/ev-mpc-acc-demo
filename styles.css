@@ -626,3 +626,66 @@ tr.rowoff td{opacity:.45}
 .ht-list{list-style:none;margin:14px 0 0;padding:0;max-width:62rem;display:grid;gap:10px;counter-reset:ht}
 .ht-list li{position:relative;padding-left:40px;font-size:15px;line-height:24px;color:var(--text2)}.ht-list li b{color:var(--text)}
 .ht-list li::before{content:attr(data-n);position:absolute;left:0;top:0;width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--on-accent);font:600 14px/26px var(--sans);text-align:center}
+
+/* ===== Round o: motion layer (motion.js). Only transform/opacity/filter/stroke-dashoffset move; every effect plays once; .rm = reduced motion ===== */
+@view-transition{navigation:auto}
+header.nav{view-transition-name:site-nav}
+main{view-transition-name:page-main}
+::view-transition-group(site-nav){animation-duration:0s}
+::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal}
+::view-transition-old(page-main){animation:vt-out 140ms var(--ease) both}
+::view-transition-new(page-main){animation:vt-in 260ms var(--ease) both}
+@keyframes vt-out{to{opacity:0}}
+@keyframes vt-in{from{opacity:0;transform:translateY(8px)}}
+.rm::view-transition-group(*),.rm::view-transition-old(*),.rm::view-transition-new(*){animation:none!important}
+.rm *,.rm *::before,.rm *::after{animation:none!important;transition:none!important}
+.rm{scroll-behavior:auto}
+.rm-row{margin-top:12px}.rm-row .check{margin:0;display:inline-flex;align-items:center;gap:8px}.rm-row input{margin:0}
+/* pill nav indicator */
+.links{position:relative}
+.mo-nav a[aria-current=page]{box-shadow:none}
+.nav-ind{position:absolute;left:0;bottom:0;width:100px;height:2px;border-radius:1px;background:var(--accent);transform-origin:0 50%;opacity:0;pointer-events:none;transition:transform 320ms var(--ease),opacity 150ms var(--ease)}
+/* blur text */
+.mo-bt{display:inline-block;animation:mo-bt 420ms var(--ease) both;animation-delay:calc(var(--i)*35ms)}
+@keyframes mo-bt{from{opacity:0;filter:blur(8px);transform:translateY(6px)}to{opacity:1;filter:blur(0);transform:none}}
+/* dot grid */
+.hero-dots{position:absolute;inset:0;z-index:0;width:100%;height:100%;pointer-events:none;display:block}
+/* spotlight card + border glow */
+.fx{position:relative}
+.fx::before,.fx::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity 250ms var(--ease)}
+.fx::before{padding:1px;background:radial-gradient(240px circle at var(--mx,50%) var(--my,50%),var(--accent),transparent 70%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+.fx::after{background:radial-gradient(280px circle at var(--mx,50%) var(--my,50%),var(--accent-soft),transparent 70%)}
+.fx:hover::before,.fx:hover::after{opacity:1}
+/* fade content */
+.mo-pre{opacity:0;transform:translateY(12px)}
+.mo-t{transition:opacity 480ms var(--ease),transform 480ms var(--ease)}
+.dr-pre svg path.ln,.dr-pre svg rect.ob,.dr-pre svg rect.ob2,.dr-pre svg rect.sgs{opacity:0}
+@media print{.mo-pre{opacity:1!important;transform:none!important}.dr-pre svg *{opacity:1!important}}
+/* overview rail progress line */
+.ov-rail ol{position:relative}
+.ov-rail ol::before,.ov-rail ol::after{content:"";position:absolute;left:19px;top:var(--y0,17px);width:1px;height:var(--len,0);pointer-events:none}
+.ov-rail ol::before{background:var(--line2)}
+.ov-rail ol::after{background:var(--accent);transform:scaleY(var(--p,0));transform-origin:50% 0;transition:transform 120ms linear}
+.ov-rail .n{position:relative;z-index:1;background:var(--bg)}
+.ov-rail ol a:hover .n{background:var(--raised)}
+.ov-rail a[aria-current=step] .n{background:var(--accent)}
+@media(max-width:959px){.ov-rail ol::before,.ov-rail ol::after{display:none}}
+/* rubber segment thumb */
+.seg.mo-sg{position:relative}
+.seg-th{position:absolute;left:0;top:0;width:100px;height:0;border-radius:6px;background:var(--card);box-shadow:0 0 0 1px var(--line2);transform-origin:0 0;opacity:0;pointer-events:none;transition:transform 340ms cubic-bezier(.34,1.4,.64,1),opacity 150ms var(--ease)}
+.seg.mo-sg-on .seg-th{opacity:1}
+.seg.mo-sg label{z-index:1}
+.seg.mo-sg-on input:checked+span{background:transparent;box-shadow:none}
+/* star border while running */
+.runbtn{position:relative;isolation:isolate;overflow:hidden}
+.runbtn.star::before{content:"";position:absolute;z-index:-2;left:50%;top:50%;width:520px;height:520px;margin:-260px 0 0 -260px;background:conic-gradient(from 0deg,transparent 0 72%,var(--accent) 92%,#fff 100%);animation:star-spin 2.6s linear infinite}
+.runbtn.star::after{content:"";position:absolute;z-index:-1;inset:2px;border-radius:8px;background:inherit}
+@keyframes star-spin{to{transform:rotate(1turn)}}
+/* lattice loader (replaces the dot while the engine loads) */
+.chip .lat{display:none;grid-template-columns:repeat(3,2px);gap:2px;flex:none;margin:0 -2px}
+.chip[data-s=loading] .lat{display:grid}.chip[data-s=loading] i{display:none}
+.lat b{width:2px;height:2px;border-radius:50%;background:var(--accent);animation:lat 1.2s var(--ease) infinite}
+.lat b:nth-child(2),.lat b:nth-child(4){animation-delay:.1s}.lat b:nth-child(3),.lat b:nth-child(5),.lat b:nth-child(7){animation-delay:.2s}.lat b:nth-child(6),.lat b:nth-child(8){animation-delay:.3s}.lat b:nth-child(9){animation-delay:.4s}
+@keyframes lat{0%,100%{opacity:.25;transform:scale(.7)}50%{opacity:1;transform:scale(1.5)}}
+.rm .runbtn::before,.rm .runbtn::after{display:none}
+.rm .mo-pre{opacity:1;transform:none}.rm .dr-pre svg *{opacity:1}
