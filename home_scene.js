@@ -1,11 +1,12 @@
 'use strict';
-/* Home scene (round r): a calm studio-blue frame with two STYLISED 3D cars driving the real recorded window (data/hero.json, embedded in the page as #hm-data).
+/* Home scene (round s): a dark, calm scene card with two STYLISED 3D cars driving the real recorded window (data/hero.json, embedded in the page as #hm-data).
    Lead car = recorded lead speed; our car = our MPC controller's simulated run behind it; gaps to scale; battery power per step computed at build time with the project's own
-   plant functions (demo_v2/export_hero_power.py, python/mpc_acc.py). Four hotspots anchored to 3D points (the gap, the battery, regen, the planner) open detail views.
-   three.js r170 is loaded from the jsDelivr CDN as hero3d.js does; without WebGL or on a load error a pre-rendered still with the same hotspots is shown.
-   The studio look (framed 16:9 scene, electric-green hotspots, detail card) is inspired by the VEYRA interactive car by Amir Mušić (MIT); no VEYRA code or media is used here. */
+   plant functions (demo_v2/export_hero_power.py, python/mpc_acc.py). Four hotspots anchored to 3D points (the gap, the battery, regen, the planner) open detail views over the card.
+   The playback time is ONE clock shared with the window chart card beside it: this script announces its time as ev:scrub (scope hero) and follows the chart when it is hovered.
+   three.js r170 is loaded from the jsDelivr CDN as hero3d.js did; without WebGL or on a load error a pre-rendered still with the same hotspots is shown.
+   The hotspot interaction is inspired by the VEYRA interactive car by Amir Music (MIT); no VEYRA code or media is used here. */
 (function () {
-  var root = document.getElementById('vs'), dataEl = document.getElementById('hm-data');
+  var root = document.getElementById('hs'), dataEl = document.getElementById('hm-data');
   if (!root || !dataEl) return;
   var DATA = JSON.parse(dataEl.textContent), H = DATA.hero, SYSTEMS = DATA.systems, HOT = DATA.hotspots, PR = DATA.params, STILL = DATA.still || {};
   var THREE_URL = window.__THREE_URL || 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js';
@@ -28,9 +29,9 @@
   var fx = function (v, d) { return v.toFixed(d).replace('-', '−'); };
 
   /* ------------------------------------------------------------ DOM */
-  var stage = $('.vs-stage'), plane = $('.vs-plane'), glCanvas = $('.hm-gl'), stillImg = $('.hm-still'), fadeEl = $('.hm-fade'), ov = $('.hm-ov'),
-      hotLayer = $('.vs-hotlayer'), annoLayer = $('.vs-annolayer'), intro = $('.vs-intro'), backSlot = $('.vs-backslot'), detail = $('.vs-detail'),
-      statusEl = $('.vs-status'), sr = $('.vs-sr'), errEl = $('.vs-error'), bar = $('.hm-bar'), playBtn = $('[data-play]'), scrub = $('.hm-scrub'),
+  var stage = $('.hs-stage'), plane = $('.hs-plane'), glCanvas = $('.hm-gl'), stillImg = $('.hm-still'), fadeEl = $('.hm-fade'), ov = $('.hm-ov'),
+      hotLayer = $('.hs-hotlayer'), annoLayer = $('.hs-annolayer'), backSlot = $('.hs-backslot'), detail = $('.hs-detail'),
+      statusEl = $('.hs-status'), sr = $('.hs-sr'), errEl = $('.hs-error'), bar = $('.hm-bar'), playBtn = $('[data-play]'), scrub = $('.hm-scrub'),
       speedBtns = Array.prototype.slice.call(root.querySelectorAll('[data-speed]'));
   var RD = {}; Array.prototype.forEach.call(root.querySelectorAll('[data-r]'), function (n) { RD[n.getAttribute('data-r')] = n; });
 
@@ -54,7 +55,9 @@
   var mqReduce = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : null;
   S.reduced = !!((mqReduce && mqReduce.matches) || html.classList.contains('rm'));
   if (S.reduced) { S.playing = false; S.t = T_STILL; }
-  var phone = function () { return window.innerWidth <= 600; }, narrow = function () { return window.innerWidth <= 900; }, panel = function () { return window.innerWidth > 900 && window.innerHeight >= 781; };   // the detail card overlays the frame (else it flows below)
+  var phone = function () { return window.innerWidth <= 600; }, PANEL_MIN = 640;
+  var panel = function () { return stage.clientWidth >= PANEL_MIN; };   // wide card: the detail card overlays the scene (else it opens under the scene, inside the card)
+  var panelFrac = function () { if (!panel()) return 0; var w = detail.offsetWidth || Math.min(380, Math.max(290, stage.clientWidth * 0.42)); return clamp((w + 14) / Math.max(1, plane.clientWidth), 0, 0.55); };
   var ASPECT = 16 / 9, G = null, failed = false, visible = true, raf = 0, rendering = false;
   var transT0 = 0, transDur = 0, kDet = 0, kFrom = 0, kTo = 0, request = 0, timer = 0;
   var vis = { gap: 0, xray: 0, regen: 0, planner: 0 }, spd = 4, scrubbing = false, loopState = 0, loopT = 0, wall = 0, lastTextAt = 0;
@@ -62,20 +65,19 @@
 
   /* ------------------------------------------------------------ plane geometry */
   function updatePlane() {
-    var width = stage.getBoundingClientRect().width, mobile = narrow();
+    var width = stage.getBoundingClientRect().width;
     ASPECT = phone() ? 1.25 : 16 / 9;
-    var navH = (document.querySelector('header.nav') || { offsetHeight: 56 }).offsetHeight, introH = intro.offsetHeight + 12;
-    var mediaHeight = Math.max(520, window.innerHeight) - navH - introH - 96;   // 96 px: the readout strip peeks in under the frame, the controls are one short scroll away
-    var w = mobile ? width : Math.min(width, mediaHeight * ASPECT), h = w / ASPECT;
-    root.style.setProperty('--vs-w', w + 'px'); root.style.setProperty('--vs-h', h + 'px'); root.style.setProperty('--vs-intro-h', introH + 'px');
+    root.style.setProperty('--hs-h', (width / ASPECT) + 'px');
+    var po = panel(); if (po !== lastPanel) { lastPanel = po; render(); }
     if (G) G.resize(); requestDraw(); placeStillHot();
   }
+  var lastPanel = null;
 
   /* ------------------------------------------------------------ small DOM pieces: hotspots, overlay tags, back button, detail card */
   var hotBtn = {}, annoBtn = [], tags = {};
   HOT.forEach(function (item) {
-    var b = el('button', 'vs-hotspot', { type: 'button', 'aria-label': item.aria, 'data-id': item.id }, '<span class="vs-ring">' + ICON.plus + '</span><span class="vs-label">' + esc(item.label) + ICON.arrow + '</span>');
-    b.addEventListener('pointerenter', function () { var ae = document.activeElement; if (ae && ae !== b && ae.classList && ae.classList.contains('vs-hotspot')) ae.blur(); if (S.phase === 'overview') set({ hovered: item.id }); });
+    var b = el('button', 'hs-hotspot', { type: 'button', 'aria-label': item.aria, 'data-id': item.id }, '<span class="hs-ring">' + ICON.plus + '</span><span class="hs-label">' + esc(item.label) + ICON.arrow + '</span>');
+    b.addEventListener('pointerenter', function () { var ae = document.activeElement; if (ae && ae !== b && ae.classList && ae.classList.contains('hs-hotspot')) ae.blur(); if (S.phase === 'overview') set({ hovered: item.id }); });
     b.addEventListener('pointerleave', function () { set({ hovered: null }); });
     b.addEventListener('focus', function () { if (S.phase === 'overview') set({ hovered: item.id }); });
     b.addEventListener('blur', function () { set({ hovered: null }); });
@@ -84,18 +86,18 @@
   });
   function tag(id, cls) { var t = el('div', 'hm-tag ' + (cls || ''), { 'data-t': id }); ov.appendChild(t); tags[id] = { n: t, x: 0, y: 0, on: 0 }; return tags[id]; }
   tag('gap', ''); tag('dstar', 'soft'); tag('floor', 'soft'); tag('batt', ''); tag('regen', 'wide'); tag('pl1', 'soft'); tag('pl2', 'soft'); tag('pl3', 'soft'); tag('plc', 'soft');
-  var backBtn = null, detailBuilt = null;
+  var backBtn = null, detailBuilt = null, detailShownOnce = 0;
   function buildDetail(id) {
     var s = SYSTEMS[id];
-    var h = '<div class="vs-detail-introduction"><p class="vs-eyebrow">' + esc(s.category) + '</p><h2>' + s.title.split('\n').map(function (l) { return '<span>' + esc(l) + '</span>'; }).join('') + '</h2><p class="vs-system-description">' + esc(s.description) + '</p></div>' +
-      '<div class="vs-detail-components"><div class="vs-part-list">';
-    s.points.forEach(function (p, i) { h += '<button type="button" data-i="' + i + '" aria-expanded="false"><span class="vs-part-row"><small>' + ('0' + (i + 1)).slice(-2) + '</small>' + esc(p.label) + ICON.plus + '</span><span class="vs-part-description" hidden>' + esc(p.text) + '</span></button>'; });
-    h += '</div><div class="vs-benefit"><span>' + esc(s.benefitHead) + '</span><p>' + esc(s.benefit) + '</p></div></div>';
+    var h = '<div class="hs-detail-introduction"><p class="hs-eyebrow">' + esc(s.category) + '</p><h2>' + s.title.split('\n').map(function (l) { return '<span>' + esc(l) + '</span>'; }).join('') + '</h2><p class="hs-system-description">' + esc(s.description) + '</p></div>' +
+      '<div class="hs-detail-components"><div class="hs-part-list">';
+    s.points.forEach(function (p, i) { h += '<button type="button" data-i="' + i + '" aria-expanded="false"><span class="hs-part-row"><small>' + ('0' + (i + 1)).slice(-2) + '</small>' + esc(p.label) + ICON.plus + '</span><span class="hs-part-description" hidden>' + esc(p.text) + '</span></button>'; });
+    h += '</div><div class="hs-benefit"><span>' + esc(s.benefitHead) + '</span><p>' + esc(s.benefit) + '</p></div></div>';
     detail.innerHTML = h;
-    Array.prototype.forEach.call(detail.querySelectorAll('.vs-part-list button'), function (b) { b.addEventListener('click', function () { var i = +b.getAttribute('data-i'); set({ annotation: S.annotation === i ? null : i }); }); });
+    Array.prototype.forEach.call(detail.querySelectorAll('.hs-part-list button'), function (b) { b.addEventListener('click', function () { var i = +b.getAttribute('data-i'); set({ annotation: S.annotation === i ? null : i }); }); });
     annoLayer.innerHTML = ''; annoBtn = [];
     s.points.forEach(function (p, i) {
-      var a = el('button', 'vs-annotation', { type: 'button', 'aria-label': p.label, 'aria-expanded': 'false' }, '<span>' + ('0' + (i + 1)).slice(-2) + '</span><span class="vs-annotation-label">' + esc(p.label) + '</span>');
+      var a = el('button', 'hs-annotation', { type: 'button', 'aria-label': p.label, 'aria-expanded': 'false' }, '<span>' + ('0' + (i + 1)).slice(-2) + '</span><span class="hs-annotation-label">' + esc(p.label) + '</span>');
       a.addEventListener('click', function () { set({ annotation: S.annotation === i ? null : i }); }); annoLayer.appendChild(a); annoBtn.push(a);
     });
     detailBuilt = id;
@@ -107,7 +109,7 @@
     if (S.phase !== 'overview') return;
     var token = ++request; S.selected = id; S.hovered = null; S.annotation = null; S.phase = 'entering';
     kFrom = kDet; kTo = 1; transT0 = performance.now(); transDur = S.reduced ? 0 : 950;
-    clearTimeout(timer); timer = setTimeout(function () { if (request !== token) return; S.phase = 'detail'; kDet = 1; render(); setTimeout(function () { var b = $('.vs-back'); if (b) b.focus({ preventScroll: true }); }, 0); }, transDur);
+    clearTimeout(timer); timer = setTimeout(function () { if (request !== token) return; S.phase = 'detail'; kDet = 1; render(); setTimeout(function () { var b = $('.hs-back'); if (b) b.focus({ preventScroll: true }); }, 0); }, transDur);
     render();
   }
   function back() {
@@ -124,28 +126,28 @@
     if (rendering) return; rendering = true;
     try {
       var b = busy(), cur = SYSTEMS[S.selected], overview = S.phase === 'overview';
-      root.className = 'vs vs-hm phase-' + S.phase + (S.reduced ? ' reduced' : '') + (S.mode === 'gl' ? ' gl-on' : '') + (S.mode === 'still' ? ' still-on' : '');
+      root.className = 'hs hs-hm phase-' + S.phase + (panel() ? ' panel-on' : '') + (S.reduced ? ' reduced' : '') + (S.mode === 'gl' ? ' gl-on' : '') + (S.mode === 'still' ? ' still-on' : '');
       root.setAttribute('aria-busy', b ? 'true' : 'false');
       hotLayer.hidden = !(overview && S.mode !== 'loading');
-      HOT.forEach(function (item) { hotBtn[item.id].className = 'vs-hotspot' + (S.hovered === item.id ? ' active' : ''); });
-      intro.className = 'vs-intro' + (!overview ? ' hide' : ''); intro.setAttribute('aria-hidden', !overview ? 'true' : 'false');
+      HOT.forEach(function (item) { hotBtn[item.id].className = 'hs-hotspot' + (S.hovered === item.id ? ' active' : ''); });
       if (!overview) {
-        if (!backBtn) { backBtn = el('button', 'vs-back', { type: 'button', 'aria-label': 'Back to the moving cars' }, ICON.back + '<span></span><kbd>Esc</kbd>'); backBtn.addEventListener('click', back); backSlot.appendChild(backBtn); }
+        if (!backBtn) { backBtn = el('button', 'hs-back', { type: 'button', 'aria-label': 'Back to the moving cars' }, ICON.back + '<span></span><kbd>Esc</kbd>'); backBtn.addEventListener('click', back); backSlot.appendChild(backBtn); }
         backBtn.disabled = b; backBtn.querySelector('span').textContent = S.phase === 'returning' ? 'Returning' : 'Back to the cars';
       } else if (backBtn) { backBtn.remove(); backBtn = null; }
       if (detailBuilt !== S.selected) buildDetail(S.selected);
-      detail.className = 'vs-detail' + (S.phase === 'detail' ? ' shown' : ''); detail.setAttribute('aria-hidden', S.phase === 'detail' ? 'false' : 'true');
-      Array.prototype.forEach.call(detail.querySelectorAll('.vs-part-list button'), function (pb, i) {
+      if (S.phase === 'detail' && !panel() && !detailShownOnce) { detailShownOnce = 1; try { detail.scrollIntoView({ block: 'nearest', behavior: S.reduced ? 'auto' : 'smooth' }); } catch (e) { } } else if (S.phase === 'overview') { if (detailShownOnce && !panel()) { try { plane.scrollIntoView({ block: 'nearest', behavior: S.reduced ? 'auto' : 'smooth' }); } catch (e) { } } detailShownOnce = 0; }
+      detail.className = 'hs-detail' + (S.phase === 'detail' ? ' shown' : ''); detail.setAttribute('aria-hidden', S.phase === 'detail' ? 'false' : 'true');
+      Array.prototype.forEach.call(detail.querySelectorAll('.hs-part-list button'), function (pb, i) {
         var sel = S.annotation === i; pb.className = sel ? 'selected' : ''; pb.setAttribute('aria-expanded', sel ? 'true' : 'false'); pb.tabIndex = S.phase === 'detail' ? 0 : -1;
-        pb.querySelector('.vs-part-description').hidden = !sel;
+        pb.querySelector('.hs-part-description').hidden = !sel;
       });
       annoLayer.hidden = S.phase !== 'detail';
-      annoBtn.forEach(function (a, i) { a.className = 'vs-annotation' + (S.annotation === i ? ' open' : ''); a.setAttribute('aria-expanded', S.annotation === i ? 'true' : 'false'); a.tabIndex = S.phase === 'detail' ? 0 : -1; });
+      annoBtn.forEach(function (a, i) { a.className = 'hs-annotation' + (S.annotation === i ? ' open' : ''); a.setAttribute('aria-expanded', S.annotation === i ? 'true' : 'false'); a.tabIndex = S.phase === 'detail' ? 0 : -1; });
       var st = S.mode === 'loading' ? 'Preparing the scene' : b ? (S.phase === 'returning' ? 'Returning to the cars' : 'Moving in on ' + cur.label.toLowerCase()) : '';
-      statusEl.hidden = !st; statusEl.innerHTML = st ? '<span class="vs-small-dot"></span>' + esc(st) : '';
+      statusEl.hidden = !st; statusEl.innerHTML = st ? '<span class="hs-small-dot"></span>' + esc(st) : '';
       sr.textContent = b ? (S.phase === 'entering' ? 'Opening ' : 'Closing ') + cur.label : S.phase === 'detail' ? cur.label + ' view. Press Escape to return.' : 'Moving cars. Choose a point.';
       errEl.hidden = !S.error; errEl.querySelector('span').textContent = S.error || '';
-      var base = $('.vs-baseline-r'); if (base) base.textContent = overview ? 'Hover or tap a point. Press Escape to come back.' : 'Playback is paused while you read.';
+      var base = $('.hs-baseline-r'); if (base) base.textContent = overview ? 'Hover or tap a point. Press Escape to come back.' : 'Playback is paused while you read.';
       playBtn.innerHTML = S.playing ? ICON.pause : ICON.play; playBtn.setAttribute('aria-label', S.playing ? 'Pause' : 'Play');
       speedBtns.forEach(function (sb) { sb.setAttribute('aria-pressed', +sb.getAttribute('data-speed') === S.speed ? 'true' : 'false'); });
       var ctl = !S.reduced; playBtn.hidden = !ctl; $('.hm-speeds').hidden = !ctl;
@@ -183,37 +185,57 @@
   function paintReadout(s, force) {
     var now = performance.now(); if (!force && now - lastTextAt < 90) return; lastTextAt = now;
     RD.t.textContent = fx(s.t, 1) + ' s'; RD.v.textContent = fx(s.v, 1) + ' m/s'; RD.vk.textContent = fx(s.v * 3.6, 0) + ' km/h'; RD.g.textContent = fx(s.gap, 1) + ' m';
-    RD.p.textContent = (s.pb > 0 ? '+' : s.pb < 0 ? '−' : '') + fx(Math.abs(s.pb), 1) + ' kW'; RD.ps.textContent = s.pb >= 0 ? 'from the battery' : 'back to the battery'; RD.l.textContent = fx(s.lead, 1) + ' m/s';
+    RD.p.textContent = (s.pb > 0 ? '+' : s.pb < 0 ? '−' : '') + fx(Math.abs(s.pb), 1) + ' kW'; RD.ps.textContent = s.pb >= 0 ? 'from the battery' : 'to the battery'; RD.l.textContent = fx(s.lead, 1) + ' m/s';
     if (!scrubbing) scrub.value = Math.round(s.t / TEND * 1000);
+    if (!chartHold && (force || Math.abs(s.t - lastAnn) > 1e-6)) { lastAnn = s.t; window.dispatchEvent(new CustomEvent('ev:scrub', { detail: { t: s.t, src: 'scene', scope: 'hero' } })); }   // the window chart card draws its cursor and readout from this one clock
   }
+  var chartHold = false, lastAnn = -1;
+  window.addEventListener('ev:scrub', function (e) {   // hovering or dragging on the chart scrubs the scene; leaving it lets the clock run on
+    var d = e.detail || {}; if (d.scope !== 'hero' || d.src !== 'chart') return;
+    if (d.t === null || d.t === undefined) { chartHold = false; return; }
+    chartHold = true; S.t = clamp(d.t, 0, TEND); loopState = 0; fadeEl.style.opacity = 0; if (G) G.cs.fresh = 1; requestDraw(); if (S.reduced) paintReadout(snap(S.t), true);
+  });
 
   /* ------------------------------------------------------------ three.js scene */
-  var BG = 0x587890, CAMP = [16, 11, 24, 0.42, 0.9, 1.5];   // azimuth deg, elevation deg, vertical fov, look-at weight toward the lead, target height
+  var mqDark = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
+  function pal() {   // scene colours follow the site theme (the CSS variables of styles.css), recomputed when the system theme changes
+    var dark = !mqDark || mqDark.matches;
+    return dark ? { dark: true, bg: 0x141415, floor: 0x1d1e21, grid: 0x3b3e44, road: 0.05, dash: 0xb4b9bf, edge: 0x6b7077, pool: 0.20, env: 0x30353b, envK: 0.8, hemiSky: 0xcfd8e2, hemiGnd: 0x26282c, hemiI: 0.55, key: 1.15, rim: 1.9, shadow: 0.7, accent: 0x2dd4bf }
+                : { dark: false, bg: 0xfafafa, floor: 0xe7e8ea, grid: 0xc4c7cc, road: 0.10, dash: 0xf2f3f4, edge: 0xe3e5e7, pool: 0.16, env: 0xb8c0c8, envK: 1.0, hemiSky: 0xffffff, hemiGnd: 0x9aa2aa, hemiI: 0.75, key: 1.3, rim: 1.3, shadow: 0.5, accent: 0x14b8a6 };
+  }
+  var PAL = pal();
+  var CAMP = [16, 11, 24, 0.42, 0.9, 1.5];   // azimuth deg, elevation deg, vertical fov, look-at weight toward the lead, target height
   function sceneBuild(THREE) {
-    var renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: true, alpha: false, powerPreference: 'default' });
+    var P_ = PAL, BG = P_.bg, renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: true, alpha: false, powerPreference: 'default' });
     renderer.setClearColor(BG, 1); renderer.outputColorSpace = THREE.SRGBColorSpace;
-    var scene = new THREE.Scene(); scene.fog = new THREE.Fog(BG, 42, 135);
+    var scene = new THREE.Scene(); scene.fog = new THREE.Fog(BG, 38, 125);
     var camera = new THREE.PerspectiveCamera(CAMP[2], 16 / 9, 0.5, 400);
     var sc = new THREE.Color(BG);
 
     // studio light: a procedural environment (soft boxes) for reflections + one soft key + sky fill
     var pm = new THREE.PMREMGenerator(renderer), envScene = new THREE.Scene();
-    envScene.add(new THREE.Mesh(new THREE.BoxGeometry(60, 30, 60), new THREE.MeshBasicMaterial({ color: 0x4d6a7e, side: THREE.BackSide })));
-    var sb = function (w, h, d, x, y, z, k) { var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color: new THREE.Color(k, k, k * 1.04) })); m.position.set(x, y, z); envScene.add(m); };
+    envScene.add(new THREE.Mesh(new THREE.BoxGeometry(60, 30, 60), new THREE.MeshBasicMaterial({ color: P_.env, side: THREE.BackSide })));
+    var sb = function (w, h, d, x, y, z, k) { var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color: new THREE.Color(k * P_.envK, k * P_.envK, k * P_.envK * 1.04) })); m.position.set(x, y, z); envScene.add(m); };
     sb(26, 0.5, 9, 0, 13, 2, 3.2); sb(0.5, 9, 22, -20, 7, 0, 2.0); sb(0.5, 9, 22, 20, 7, 0, 1.6); sb(22, 7, 0.5, 0, 6, -22, 1.4); sb(8, 0.5, 8, 0, 0.2, 14, 0.7);
     var envTex = pm.fromScene(envScene, 0.035).texture; pm.dispose();
-    var hemi = new THREE.HemisphereLight(0xe3eef5, 0x536c7d, 0.7); scene.add(hemi);
-    var key = new THREE.DirectionalLight(0xffffff, 1.35); key.position.set(-8, 16, 9); scene.add(key);
+    var hemi = new THREE.HemisphereLight(P_.hemiSky, P_.hemiGnd, P_.hemiI); scene.add(hemi);
+    var key = new THREE.DirectionalLight(0xffffff, P_.key); key.position.set(-8, 16, 9); scene.add(key);
+    var rim = new THREE.DirectionalLight(0xb9d4ff, P_.rim); rim.position.set(16, 9, -13); scene.add(rim);   // cool rim light from behind the cars: edges of roof, shoulders and tail read on the dark floor
+    var rim2 = new THREE.DirectionalLight(0xcdeee9, P_.rim * 0.5); rim2.position.set(-12, 6, -14); scene.add(rim2);
 
     // ground + road (follow the camera, so the road scrolls under the cars)
-    var glowTex = (function () { var c = document.createElement('canvas'); c.width = c.height = 256; var x = c.getContext('2d'), g = x.createRadialGradient(128, 128, 0, 128, 128, 128); g.addColorStop(0, 'rgba(255,255,255,.34)'); g.addColorStop(.5, 'rgba(255,255,255,.12)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 256, 256); var t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+    var glowTex = (function () { var c = document.createElement('canvas'); c.width = c.height = 256; var x = c.getContext('2d'), g = x.createRadialGradient(128, 128, 0, 128, 128, 128); g.addColorStop(0, 'rgba(255,255,255,' + P_.pool + ')'); g.addColorStop(.5, 'rgba(255,255,255,' + (P_.pool * 0.35) + ')'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 256, 256); var t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+    var GS = 4, hx = function (n) { return '#' + ('000000' + n.toString(16)).slice(-6); };
+    var gridTex = (function () { var c = document.createElement('canvas'); c.width = c.height = 256; var x = c.getContext('2d'); x.fillStyle = hx(P_.floor); x.fillRect(0, 0, 256, 256); x.strokeStyle = hx(P_.grid); x.lineWidth = 4; x.strokeRect(0, 0, 256, 256);
+      var t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); t.repeat.set(700 / GS, 400 / GS); return t; })();
+    var floorM = new THREE.Mesh(new THREE.PlaneGeometry(700, 400).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: gridTex, depthWrite: false, depthTest: false })); floorM.position.y = -0.004; floorM.renderOrder = -3; scene.add(floorM);   // dark floor with a faint 4 m grid that fades into the backdrop through mip-maps and fog
     var pool = new THREE.Mesh(new THREE.PlaneGeometry(90, 64).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false, fog: false })); pool.position.y = 0.004; scene.add(pool);
     var RW = 7.2, rg = new THREE.PlaneGeometry(320, RW, 1, 8).rotateX(-Math.PI / 2), rc = [];
-    for (var j = 0; j <= 8; j++) { var u = Math.abs(j / 8 - 0.5) * 2, shade = 0.80 - 0.10 * Math.pow(u, 2.2); for (var q = 0; q < 2; q++) rc.push(shade * 0.98, shade, shade * 1.02); }
+    for (var j = 0; j <= 8; j++) { var u = Math.abs(j / 8 - 0.5) * 2, shade = P_.road * (1.0 - 0.28 * Math.pow(u, 2.2)); for (var q = 0; q < 2; q++) rc.push(shade * 0.99, shade, shade * 1.03); }
     rg.setAttribute('color', new THREE.Float32BufferAttribute(rc, 3));
     var road = new THREE.Mesh(rg, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0 })); road.position.y = 0.012; scene.add(road);
-    var lineMat = new THREE.MeshBasicMaterial({ color: 0xeef3f5 }), edgeG = new THREE.PlaneGeometry(320, 0.13).rotateX(-Math.PI / 2), edges = [];
-    [-RW / 2 + 0.28, RW / 2 - 0.28].forEach(function (z) { var m = new THREE.Mesh(edgeG, lineMat); m.position.set(0, 0.02, z); scene.add(m); edges.push(m); });
+    var lineMat = new THREE.MeshBasicMaterial({ color: P_.dash }), edgeMat = new THREE.MeshBasicMaterial({ color: P_.edge }), edgeG = new THREE.PlaneGeometry(320, 0.13).rotateX(-Math.PI / 2), edges = [];
+    [-RW / 2 + 0.28, RW / 2 - 0.28].forEach(function (z) { var m = new THREE.Mesh(edgeG, edgeMat); m.position.set(0, 0.02, z); scene.add(m); edges.push(m); });
     var DP = 9, DN = 40, dashes = new THREE.InstancedMesh(new THREE.PlaneGeometry(3, 0.13).rotateX(-Math.PI / 2), lineMat, DN), dashBase = NaN, dm = new THREE.Matrix4(); dashes.frustumCulled = false; scene.add(dashes);
     function placeDashes(cx) { var b = Math.floor(cx / DP) * DP; if (b === dashBase) return; dashBase = b; for (var i = 0; i < DN; i++) { dm.makeTranslation(b + (i - DN / 2) * DP, 0.02, 0); dashes.setMatrixAt(i, dm); } dashes.instanceMatrix.needsUpdate = true; }
 
@@ -277,7 +299,7 @@
       var body = new THREE.MeshPhysicalMaterial({ color: cfg.body, vertexColors: true, roughness: 0.34, metalness: 0.15, clearcoat: 1, clearcoatRoughness: 0.12, envMapIntensity: 1.0 });
       var roof = new THREE.MeshPhysicalMaterial({ color: cfg.roof, roughness: 0.3, metalness: 0.15, clearcoat: 1, clearcoatRoughness: 0.1, side: THREE.DoubleSide });
       var glass = new THREE.MeshPhysicalMaterial({ color: 0x0d151b, roughness: 0.16, metalness: 0.0, clearcoat: 0.6, clearcoatRoughness: 0.12, envMapIntensity: 0.9 });
-      var rimM = new THREE.MeshStandardMaterial({ color: 0xcfd6db, roughness: 0.28, metalness: 0.85, emissive: 0xedff39, emissiveIntensity: 0 }), rimR = rimM.clone(), tyreM = new THREE.MeshStandardMaterial({ color: 0x15191c, roughness: 0.85 });
+      var rimM = new THREE.MeshStandardMaterial({ color: 0xcfd6db, roughness: 0.28, metalness: 0.85, emissive: P_.accent, emissiveIntensity: 0 }), rimR = rimM.clone(), tyreM = new THREE.MeshStandardMaterial({ color: 0x15191c, roughness: 0.85 });
       var plateM = new THREE.MeshStandardMaterial({ color: 0x2a3136, roughness: 0.5, metalness: 0.6, envMap: envTex }), archM = new THREE.MeshBasicMaterial({ color: 0x04070a }), tailM = new THREE.MeshStandardMaterial({ color: 0x3a0306, emissive: 0xff1608, emissiveIntensity: 0.7, roughness: 0.3 }), headM = new THREE.MeshStandardMaterial({ color: 0xdfeaf2, emissive: 0xcfe6ff, emissiveIntensity: 1.1, roughness: 0.3 });
       [body, roof, glass, rimM, rimR, tyreM, tailM, headM].forEach(function (m) { m.envMap = envTex; }); tyreM.envMapIntensity = 0.25;
       var bodyMesh = new THREE.Mesh(geoBody, body); g.add(bodyMesh, new THREE.Mesh(geoCabin, glass), new THREE.Mesh(geoRoof, roof));
@@ -299,11 +321,11 @@
         var arch = new THREE.Mesh(new THREE.CircleGeometry(0.405, 28), archM); arch.position.set(x, 0.334, Math.sign(z) * (bWid(x) + 0.006)); if (z < 0) arch.rotation.y = Math.PI; g.add(arch);
       }); });
       // shadows under the car
-      var sh1 = new THREE.Mesh(shGeo, new THREE.MeshBasicMaterial({ map: shTex, color: 0x0c1c28, transparent: true, depthWrite: false, opacity: 0.55 })); sh1.scale.set(7.4, 1, 3.7); sh1.position.y = 0.022; g.add(sh1);
-      var sh2 = new THREE.Mesh(shGeo, new THREE.MeshBasicMaterial({ map: shTex, color: 0x050b10, transparent: true, depthWrite: false, opacity: 0.6 })); sh2.scale.set(5.0, 1, 2.2); sh2.position.y = 0.026; g.add(sh2);
+      var sh1 = new THREE.Mesh(shGeo, new THREE.MeshBasicMaterial({ map: shTex, color: 0x000000, transparent: true, depthWrite: false, opacity: 0.55 * P_.shadow / 0.55 })); sh1.scale.set(7.4, 1, 3.7); sh1.position.y = 0.022; g.add(sh1);
+      var sh2 = new THREE.Mesh(shGeo, new THREE.MeshBasicMaterial({ map: shTex, color: 0x000000, transparent: true, depthWrite: false, opacity: 0.6 * P_.shadow / 0.55 })); sh2.scale.set(5.0, 1, 2.2); sh2.position.y = 0.026; g.add(sh2);
       return { g: g, wheels: wheels, body: body, roof: roof, glass: glass, tailM: tailM, rimM: rimM, rimR: rimR, fade: fade, bodyMesh: bodyMesh };
     }
-    var lead = makeCar({ body: 0xaab2b8, roof: 0x2b3136 }), ours = makeCar({ body: 0x1fa99b, roof: 0xe9eff0 });
+    var lead = makeCar({ body: 0xaab2b8, roof: 0x2b3136 }), ours = makeCar({ body: P_.dark ? 0x1fb5a5 : 0x14a193, roof: 0xe9eff0 });
     scene.add(lead.g, ours.g);
 
     // ---------- inside our car: battery pack, motor, cables and the energy-flow particles
@@ -311,7 +333,7 @@
     var cellTex = (function () { var c = document.createElement('canvas'); c.width = 256; c.height = 128; var x = c.getContext('2d'); x.fillStyle = '#12303a'; x.fillRect(0, 0, 256, 128); x.strokeStyle = '#3fe0c8'; x.lineWidth = 2; for (var i = 0; i <= 256; i += 16) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, 128); x.stroke(); } for (var j = 0; j <= 128; j += 16) { x.beginPath(); x.moveTo(0, j); x.lineTo(256, j); x.stroke(); } var t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; })();
     var packM = new THREE.MeshStandardMaterial({ color: 0x10303a, map: cellTex, emissive: 0x2fe3c4, emissiveMap: cellTex, emissiveIntensity: 0.0, roughness: 0.5, metalness: 0.4, transparent: true });
     var pack = new THREE.Mesh(new THREE.BoxGeometry(2.55, 0.15, 1.28), packM); pack.position.set(-0.1, 0.3, 0); inner.add(pack);
-    var motorM = new THREE.MeshStandardMaterial({ color: 0x6b7780, roughness: 0.35, metalness: 0.8, emissive: 0xedff39, emissiveIntensity: 0, transparent: true });
+    var motorM = new THREE.MeshStandardMaterial({ color: 0x6b7780, roughness: 0.35, metalness: 0.8, emissive: P_.accent, emissiveIntensity: 0, transparent: true });
     var motor = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.62, 24).rotateX(Math.PI / 2), motorM); motor.position.set(-1.38, 0.42, 0); inner.add(motor);
     var axle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.6, 10).rotateX(Math.PI / 2), motorM); axle.position.set(-1.38, 0.334, 0); inner.add(axle);
     var PATHS = [[[0.95, 0.31, 0.42], [-0.2, 0.33, 0.42], [-1.05, 0.36, 0.40], [-1.36, 0.41, 0.2]], [[0.95, 0.31, -0.42], [-0.2, 0.33, -0.42], [-1.05, 0.36, -0.40], [-1.36, 0.41, -0.2]]].map(function (p) { return new THREE.CatmullRomCurve3(p.map(function (a) { return new THREE.Vector3(a[0], a[1], a[2]); })); });
@@ -321,12 +343,12 @@
     for (var pi = 0; pi < NP; pi++) { pU[pi] = (pi * 0.6180339) % 1; pPath[pi] = pi % 2; pPos[pi * 3 + 1] = -50; }
     var dotTex = (function () { var c = document.createElement('canvas'); c.width = c.height = 32; var x = c.getContext('2d'), gg = x.createRadialGradient(16, 16, 0, 16, 16, 16); gg.addColorStop(0, 'rgba(255,255,255,1)'); gg.addColorStop(.45, 'rgba(255,255,255,.75)'); gg.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gg; x.fillRect(0, 0, 32, 32); return new THREE.CanvasTexture(c); })();
     var pGeo = new THREE.BufferGeometry(); pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-    var pMat = new THREE.PointsMaterial({ size: 0.13, map: dotTex, color: 0xffb347, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true }); var pts = new THREE.Points(pGeo, pMat); pts.frustumCulled = false; inner.add(pts);
+    var pMat = new THREE.PointsMaterial({ size: 0.13, map: dotTex, color: P_.accent, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true }); var pts = new THREE.Points(pGeo, pMat); pts.frustumCulled = false; inner.add(pts);
     var tmpV = new THREE.Vector3();
     function particles(dt, kW, k, frozen) {
       pMat.opacity = k * 0.95; pts.visible = k > 0.02; if (!pts.visible) return;
       var mag = Math.abs(kW), dir = kW >= 0 ? 1 : -1, speed = (0.12 + 0.9 * Math.min(1, mag / 40)) * dir, act = Math.round(NP * clamp(0.1 + mag / 36, 0.1, 1));
-      pMat.color.set(kW >= 0 ? 0xffb347 : 0x62f28f);
+      pMat.color.set(kW >= 0 ? P_.accent : 0xbff5ec);
       for (var i = 0; i < NP; i++) {
         if (!frozen) pU[i] = (pU[i] + speed * dt + 1) % 1;
         if (i >= act) { pPos[i * 3 + 1] = -50; continue; }
@@ -341,11 +363,11 @@
       var m = new THREE.Mesh(new THREE.PlaneGeometry(1, w).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0, depthWrite: false, map: dashed ? dashTex.clone() : null }));
       if (dashed) { m.material.map.wrapS = THREE.RepeatWrapping; m.material.map.needsUpdate = true; } m.renderOrder = 3; m.visible = false; scene.add(m); return m;
     }
-    var gapLine = stripe(0xedff39, false, 0.14), dsLine = stripe(0xffffff, true, 0.11), flLine = stripe(0xff9b8a, true, 0.11);
+    var gapLine = stripe(P_.accent, false, 0.14), dsLine = stripe(0xffffff, true, 0.11), flLine = stripe(0xa7adb3, true, 0.11);
     var tickG = new THREE.PlaneGeometry(0.1, 1).rotateX(-Math.PI / 2), ticks = [];
-    [0xedff39, 0xedff39, 0xffffff, 0xff9b8a].forEach(function (c) { var m = new THREE.Mesh(tickG, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0, depthWrite: false })); m.scale.z = 0.9; m.renderOrder = 3; m.visible = false; scene.add(m); ticks.push(m); });
+    [P_.accent, P_.accent, 0xffffff, 0xa7adb3].forEach(function (c) { var m = new THREE.Mesh(tickG, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0, depthWrite: false })); m.scale.z = 0.9; m.renderOrder = 3; m.visible = false; scene.add(m); ticks.push(m); });
     var NPL = 15, dotG = new THREE.CircleGeometry(0.42, 20).rotateX(-Math.PI / 2), ringG = new THREE.RingGeometry(0.42, 0.62, 24).rotateX(-Math.PI / 2);
-    var plDots = new THREE.InstancedMesh(dotG, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, fog: false }), NPL), plAct = new THREE.InstancedMesh(ringG, new THREE.MeshBasicMaterial({ color: 0xedff39, transparent: true, opacity: 0, depthWrite: false, fog: false }), NPL);
+    var plDots = new THREE.InstancedMesh(dotG, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, fog: false }), NPL), plAct = new THREE.InstancedMesh(ringG, new THREE.MeshBasicMaterial({ color: P_.accent, transparent: true, opacity: 0, depthWrite: false, fog: false }), NPL);
     plDots.renderOrder = plAct.renderOrder = 3; plDots.frustumCulled = plAct.frustumCulled = false; scene.add(plDots, plAct);
     var band = new THREE.Mesh(new THREE.PlaneGeometry(1, 2.2).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, fog: false })); band.renderOrder = 2; band.visible = false; scene.add(band);
     var m4 = new THREE.Matrix4(), zero = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -360,10 +382,10 @@
     function pose(kind, s, k, out, look) {
       var xc = s.xe - HALF, az, el_, tx = cs.cx, ty = 0.85, tz = LANE, dist = cs.D;
       if (kind === 'over') { az = CAMP[0] + 3.5 * Math.sin(wall / 46 * 6.2832); el_ = CAMP[1] + 1.2 * Math.sin(wall / 37 * 6.2832 + 1) + (S.phase === 'overview' ? 0 : 9 * cache.pk); ty = CAMP[4]; }
-      else if (kind === 'gap') { var spn = s.gap + 2 * CARL, fa = function (g) { return spn / 2 * Math.sin(THREE.MathUtils.degToRad(g)) + 2.6; }; az = 44; el_ = 27; dist = cs.D * fa(44) / fa(CAMP[0]) * (panel() ? 2.25 : 1.3); tx = s.xe + s.gap / 2 - 1.5; ty = 0.3; }
+      else if (kind === 'gap') { var spn = s.gap + 2 * CARL, fa = function (g) { return spn / 2 * Math.sin(THREE.MathUtils.degToRad(g)) + 2.6; }; az = 44; el_ = 27; dist = cs.D * fa(44) / fa(CAMP[0]) * (panelFrac() > 0 ? 1.55 / (1 - panelFrac()) : 1.3); tx = s.xe + s.gap / 2 - 1.5; ty = 0.3; }
       else if (kind === 'battery') { az = 62; el_ = 14; dist = 10.5; tx = xc - 0.1; ty = 0.5; }
       else if (kind === 'regen') { az = 66; el_ = 12; dist = 8.0; tx = xc - 1.0; ty = 0.45; tz = LANE + 0.2; }
-      else { var spp = s.gap + 2 * CARL + s.lead * 3, thh = Math.tan(THREE.MathUtils.degToRad(CAMP[2] / 2)) * camera.aspect; az = 30; el_ = 26; dist = Math.max(cs.D, (spp * Math.sin(THREE.MathUtils.degToRad(az)) + 5) / (2 * thh * (panel() ? 0.48 : 0.7))); tx = s.xe - CARL + spp / 2 - (panel() ? 3 : 4); ty = 0.3; }
+      else { var spp = s.gap + 2 * CARL + s.lead * 3, thh = Math.tan(THREE.MathUtils.degToRad(CAMP[2] / 2)) * camera.aspect; az = 30; el_ = 26; dist = Math.max(cs.D, (spp * Math.sin(THREE.MathUtils.degToRad(az)) + 5) / (2 * thh * (panelFrac() > 0 ? 0.9 - panelFrac() : 0.7))); tx = s.xe - CARL + spp / 2 - (panel() ? 3 : 4); ty = 0.3; }
       var a = THREE.MathUtils.degToRad(az), e = THREE.MathUtils.degToRad(el_);
       out.set(tx - dist * Math.cos(e) * Math.cos(a), ty + dist * Math.sin(e), tz + dist * Math.cos(e) * Math.sin(a)); look.set(tx, ty, tz);
     }
@@ -383,7 +405,8 @@
       }
       pose('over', s, 0, pA, lA); pose(kindDet || 'over', s, 1, pB, lB);
       camPos.copy(pA).lerp(pB, k); camLook.copy(lA).lerp(lB, k); camera.position.copy(camPos); camera.lookAt(camLook);
-      var shift = panel() ? 0.14 * k : 0;
+      var fd = camPos.distanceTo(camLook); scene.fog.near = fd + 8; scene.fog.far = fd + 95;   // the fog (backdrop blend) keeps its distance from the subject in every camera pose
+      var shift = panelFrac() * 0.5 * k;
       if (shift > 0.0005) camera.setViewOffset(W, Hh, Math.round(W * shift), 0, W, Hh); else camera.clearViewOffset();
       camera.updateMatrixWorld();
     }
@@ -433,7 +456,7 @@
         plDots.instanceMatrix.needsUpdate = plAct.instanceMatrix.needsUpdate = true;
         var Lh = Math.max(1, s.lead * hz); band.position.set(xf + Lh / 2, 0.035, LANE); band.scale.set(Lh, 1, 1);
       }
-      placeDashes(cs.cx); road.position.x = cs.cx; edges.forEach(function (m) { m.position.x = cs.cx; }); pool.position.x = (xc + xl) / 2;
+      placeDashes(cs.cx); floorM.position.x = cs.cx; gridTex.offset.x = cs.cx / GS; road.position.x = cs.cx; edges.forEach(function (m) { m.position.x = cs.cx; }); pool.position.x = (xc + xl) / 2;
     }
     return { renderer: renderer, scene: scene, camera: camera, resize: resize, frame: frame, update: update, project: project, draw: function () { renderer.render(scene, camera); }, dispose: function () { try { renderer.dispose(); } catch (e) { } }, THREE: THREE, ours: ours, lead: lead, cs: cs };
   }
@@ -453,7 +476,7 @@
     // playback speed: hover slows to 1x, detail pauses
     var want = (!S.playing || S.phase !== 'overview' || S.reduced) ? 0 : (S.hovered ? 1 : S.speed);
     spd += (want - spd) * (1 - Math.exp(-dt * 6)); if (Math.abs(spd - want) < 0.003 || S.reduced) spd = want;
-    if (loopState === 0 && !scrubbing) {
+    if (loopState === 0 && !scrubbing && !chartHold) {
       S.t += dt * spd;
       if (S.t >= TEND) { S.t = TEND; if (S.playing && S.phase === 'overview') { loopState = 1; loopT = 0; } }
     } else if (loopState === 1) { loopT += dt; fadeEl.style.opacity = Math.min(1, loopT / 0.4).toFixed(3); if (loopT >= 0.4) { S.t = 0; loopState = 2; loopT = 0; G.cs.init = false; } }
@@ -482,7 +505,7 @@
     var own = function (id) { return fid === id || fid === null ? 1 : 0; };
     gk *= own('gap'); rk *= own('regen'); pk *= own('planner'); xk *= own('battery');
     if (phone() && S.phase === 'overview') { gk = rk = pk = xk = 0; }   // on a phone the hotspot name stands alone; the overlay tags appear in the detail view
-    put('gap', P(s.xe + s.gap * 0.8, 0.06, Z + 0.55), gk, 'gap <b>' + fx(s.gap, 1) + ' m</b> (measured)', 'b', 0, 8);
+    put('gap', P(s.xe + s.gap * 0.5, 0.06, Z + 0.55), gk, 'gap <b>' + fx(s.gap, 1) + ' m</b> (measured)', 'b', 0, 24);
     put('dstar', P(s.xe + dstar * 0.2, 0.06, Z - 0.15), gk, 'd* = ' + fx(PR.d0, 0) + ' + ' + fx(PR.th, 1) + ' \u00d7 ' + fx(s.v, 1) + ' = <b>' + fx(dstar, 1) + ' m</b> (desired)', 'c', 0, -8);
     put('floor', P(s.xe + floor * 0.55, 0.06, Z - 0.85), gk * (selD === 'gap' ? 1 : 0), 'floor = ' + fx(PR.dmina, 0) + ' + ' + fx(PR.dminb, 1) + ' \u00d7 ' + fx(s.v, 1) + ' = <b>' + fx(floor, 1) + ' m</b>', 'c', 0, -8);
     var back = s.pb < 0, lp = P(xc - 2.2, 0.9, Z - 0.9); lp.y -= 46;
@@ -504,7 +527,7 @@
         battery: [P(xc - 0.3, 0.32, Z), P(xc - 0.6, 0.34, Z + 0.42), P(xc, 1.75, Z)],
         regen: [P(xc - 1.38, 0.33, Z + 0.95), P(xc - 1.38, 0.42, Z + 0.1), P(xc, 1.8, Z)],
         planner: [P(xc, 2.0, Z), P(xf + s.lead * 3, 0.2, Z), P(xl, 1.7, Z)]
-      })[S.selected], mx = panel() ? 0.62 : 1;
+      })[S.selected], mx = panel() ? 1 - panelFrac() : 1;
       var x1 = Hw() * mx - 24, y1 = Hh_() - 30, placed = [], rects = [];
       Object.keys(tags).forEach(function (k) { var r = tags[k].r; if (r && r.on > 0.25 && r.w) rects.push(r); });
       var hit = function (x, y) { for (var q = 0; q < rects.length; q++) { var r = rects[q]; if (x + 19 > r.x0 && x - 19 < r.x0 + r.w && y + 19 > r.y0 && y - 19 < r.y0 + r.h) return true; } for (q = 0; q < placed.length; q++) if (Math.hypot(x - placed[q][0], y - placed[q][1]) < 40) return true; return false; };
@@ -541,7 +564,7 @@
   }
 
   /* ------------------------------------------------------------ boot */
-  if (window.ResizeObserver) { var ro = new ResizeObserver(updatePlane); ro.observe(stage); ro.observe(intro); }
+  if (window.ResizeObserver) { var ro = new ResizeObserver(updatePlane); ro.observe(stage); }
   window.addEventListener('resize', updatePlane);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(updatePlane);
   updatePlane(); render(); paintReadout(snap(S.t), true);
@@ -549,11 +572,18 @@
   if (!hasWebGL()) toStill('no WebGL');
   else {
     import(THREE_URL).then(function (THREE) {
+      THREE_MOD = THREE;
       try { G = sceneBuild(THREE); } catch (err) { toStill(String(err && err.message || err)); return; }
       glCanvas.addEventListener('webglcontextlost', function (ev) { ev.preventDefault(); if (G) G.dispose(); G = null; toStill('context lost'); });
       S.mode = 'gl'; G.resize(); render(); draw(0.016); requestAnimationFrame(function () { draw(0.016); root.classList.add('gl-on'); schedule(); });
     }, function (err) { toStill(String(err && err.message || err)); });
   }
+  var THREE_MOD = null;
+  function onTheme() {
+    PAL = pal(); if (!G || !THREE_MOD) return;
+    try { G.dispose(); G = sceneBuild(THREE_MOD); G.resize(); G.cs.fresh = 1; requestDraw(); if (S.reduced) requestDrawNow(); } catch (err) { toStill(String(err && err.message || err)); }
+  }
+  if (mqDark) (mqDark.addEventListener ? mqDark.addEventListener('change', onTheme) : mqDark.addListener(onTheme));
   window.__hm = {
     cache: cache, S: S, state: function () { return JSON.parse(JSON.stringify(S)); }, fps: function () { return { now: fpsLog.v, min: fpsLog.min, total: fpsLog.total }; }, speed: function () { return spd; }, loop: function () { return loopState; }, enter: enter, back: back, snap: snap, TEND: TEND, T_STILL: T_STILL,
     gl: function () { return G; }, hot: function () { return HOT.map(function (h) { var b = hotBtn[h.id]; return { id: h.id, x: parseFloat(b.style.left), y: parseFloat(b.style.top) }; }); }, setT: function (t) { S.t = t; if (G) G.cs.fresh = 1; requestDraw(); }, still: function () { return { t: T_STILL }; }

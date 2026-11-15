@@ -11,7 +11,8 @@
   /* ---------- hero: one real window, lead / recorded follower / our car ---------- */
   function hero(el, H) {
     const W = Math.max(280, Math.floor(el.clientWidth)), narrow = W < 480;
-    const m = { l: 36, r: 6 }, hs = narrow ? 110 : 116, hg = narrow ? 56 : 60, hh = 18, gap = 16, bot = 20;
+    const m = { l: 36, r: 6 }, hh = 18, gap = 16, bot = 20, fillH = el.dataset.fill ? Math.floor(el.clientHeight) : 0, plot = fillH >= 230 ? fillH - (2 * hh + gap + bot) : 0;
+    const hs = plot ? Math.round(plot * 0.6) : (W < 400 ? 110 : 150), hg = plot ? plot - hs : (W < 400 ? 56 : 90);
     const y1 = hh, y2 = hh + hs + gap + hh, Ht = y2 + hg + bot, T = H.t[H.t.length - 1];
     const X = v => m.l + (v / T) * (W - m.l - m.r);
     const vmax = nice(Math.max(...H.lead, ...H.rec_v, ...H.mpc_v), 5), gmax = nice(Math.max(...H.rec_gap.filter(Number.isFinite), ...H.mpc_gap.filter(Number.isFinite)), 10);
@@ -67,7 +68,7 @@
 
   const HD = dataOf('hero-data'), SD = dataOf('swarm-data');
   let lastW = 0;
-  const draw = () => { const a = $('hero-chart'), b = $('swarm-chart'); if (!a && !b) return; const w = (a ? a.clientWidth : 0) + '/' + (b ? b.clientWidth : 0); if (w === lastW) return; lastW = w; if (a && HD) hero(a, HD); if (b && SD) swarm(b, SD); };
+  const draw = () => { const a = $('hero-chart'), b = $('swarm-chart'); if (!a && !b) return; const w = (a ? a.clientWidth + 'x' + (a.dataset.fill ? a.clientHeight : 0) : 0) + '/' + (b ? b.clientWidth : 0); if (w === lastW) return; lastW = w; if (a && HD) hero(a, HD); if (b && SD) swarm(b, SD); };
   const sc = $('hero-scrub'); if (sc) sc.dataset.idle = sc.textContent;
   draw(); let tm = 0; window.addEventListener('resize', () => { clearTimeout(tm); tm = setTimeout(draw, 120); });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { lastW = 0; draw(); });

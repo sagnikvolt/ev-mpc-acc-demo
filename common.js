@@ -1,7 +1,7 @@
 'use strict';
 /* Shared code for every page: helpers, the engine (worker.js, Pyodide) on /run/ and /train/ only, CSV export, lightbox, self-test hook. All simulation and training run on the visitor's device. */
 const $ = id => document.getElementById(id);
-const SITE_V = '20261115r';   // same as VER in build_site.py (the build checks it)
+const SITE_V = '20261116s';   // same as VER in build_site.py (the build checks it)
 const ARMS = {
   acc: { name: 'Tuned ACC', c: 'var(--c-acc)', w: 1.5, dash: '6 4' }, smc: { name: 'SMC', c: 'var(--c-smc)', w: 1.5, dash: '1.5 3.5' }, sac42: { name: 'Plain SAC (seed 42)', c: 'var(--c-sac42)', w: 1.5, dash: '9 3 1.5 3' },
   safesac42: { name: 'Safe SAC (seed 42)', c: 'var(--c-safesac42)', w: 1, dash: '12 4' }, mpc_const: { name: 'MPC const-speed (our design car)', c: 'var(--c-mpc_const)', w: 2.25 },
@@ -40,7 +40,10 @@ const sgn = x => (x > 0 ? '+' : '') + x.toFixed(2).replace('-', '\u2212') + '%';
 /* ---------------- worker plumbing ---------------- */
 const worker = ENGINE && DESKTOP ? new Worker('/worker.js?v=' + SITE_V, { type: 'module' }) : null;   // phones and tablets never create the worker, so Pyodide and the data files are never requested
 let nextId = 1; const pending = new Map(); let readyRes, readyRej; const ready = new Promise((a, b) => { readyRes = a; readyRej = b; });
-function setBar(frac, msg) { $('lbar').style.transform = 'scaleX(' + frac.toFixed(3) + ')'; $('lmsg').textContent = readyInfo ? msg : 'Loading the engine… (first visit downloads ~30 MB)'; if (!readyInfo) setChip('loading', 'Loading engine ' + Math.round(frac * 100) + '%'); if (progressSink) progressSink(frac, msg); }
+const engineSaved = () => { try { return localStorage.getItem('ev_keep_engine') === '1' && 'caches' in window; } catch (e) { return false; } };   // the engine is kept on this device (Keep the engine): no download wording then
+const LOAD_TXT = () => engineSaved() ? 'Loading the engine from this device…' : 'Loading the engine… (first visit downloads ~30 MB)';
+if (ENGINE && DESKTOP && $('lmsg')) $('lmsg').textContent = LOAD_TXT();
+function setBar(frac, msg) { $('lbar').style.transform = 'scaleX(' + frac.toFixed(3) + ')'; $('lmsg').textContent = readyInfo ? msg : LOAD_TXT(); if (!readyInfo) setChip('loading', 'Loading engine ' + Math.round(frac * 100) + '%'); if (progressSink) progressSink(frac, msg); }
 if (worker) worker.onmessage = e => {
   const m = e.data;
   if (m.type === 'progress') { setBar(m.frac, m.msg); if (Proc.running) Proc.log(m.msg); }
