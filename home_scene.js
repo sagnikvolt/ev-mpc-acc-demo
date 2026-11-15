@@ -75,7 +75,7 @@
   var hotBtn = {}, annoBtn = [], tags = {};
   HOT.forEach(function (item) {
     var b = el('button', 'vs-hotspot', { type: 'button', 'aria-label': item.aria, 'data-id': item.id }, '<span class="vs-ring">' + ICON.plus + '</span><span class="vs-label">' + esc(item.label) + ICON.arrow + '</span>');
-    b.addEventListener('pointerenter', function () { if (S.phase === 'overview') set({ hovered: item.id }); });
+    b.addEventListener('pointerenter', function () { var ae = document.activeElement; if (ae && ae !== b && ae.classList && ae.classList.contains('vs-hotspot')) ae.blur(); if (S.phase === 'overview') set({ hovered: item.id }); });
     b.addEventListener('pointerleave', function () { set({ hovered: null }); });
     b.addEventListener('focus', function () { if (S.phase === 'overview') set({ hovered: item.id }); });
     b.addEventListener('blur', function () { set({ hovered: null }); });
@@ -188,7 +188,7 @@
   }
 
   /* ------------------------------------------------------------ three.js scene */
-  var BG = 0x587890, CAMP = (new URLSearchParams(location.search).get('cam') || '16,11,24,0.42,0.9,1.5').split(',').map(Number);   // azimuth deg, elevation deg, vertical fov, look-at weight toward the lead, target height
+  var BG = 0x587890, CAMP = [16, 11, 24, 0.42, 0.9, 1.5];   // azimuth deg, elevation deg, vertical fov, look-at weight toward the lead, target height
   function sceneBuild(THREE) {
     var renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: true, alpha: false, powerPreference: 'default' });
     renderer.setClearColor(BG, 1); renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -359,12 +359,11 @@
     }
     function pose(kind, s, k, out, look) {
       var xc = s.xe - HALF, az, el_, tx = cs.cx, ty = 0.85, tz = LANE, dist = cs.D;
-      if (kind === 'over') { az = CAMP[0] + 3.5 * Math.sin(wall / 46 * 6.2832); el_ = CAMP[1] + 1.2 * Math.sin(wall / 37 * 6.2832 + 1) + 9 * cache.pk; ty = CAMP[4]; }
-      else if (kind === 'gap') { var spn = s.gap + 2 * CARL, fa = function (g) { return spn / 2 * Math.sin(THREE.MathUtils.degToRad(g)) + 2.6; }; az = 44; el_ = 27; dist = cs.D * fa(44) / fa(CAMP[0]) * (panel() ? 1.95 : 1.08); tx = s.xe + s.gap / 2; ty = 0.3; }
+      if (kind === 'over') { az = CAMP[0] + 3.5 * Math.sin(wall / 46 * 6.2832); el_ = CAMP[1] + 1.2 * Math.sin(wall / 37 * 6.2832 + 1) + (S.phase === 'overview' ? 0 : 9 * cache.pk); ty = CAMP[4]; }
+      else if (kind === 'gap') { var spn = s.gap + 2 * CARL, fa = function (g) { return spn / 2 * Math.sin(THREE.MathUtils.degToRad(g)) + 2.6; }; az = 44; el_ = 27; dist = cs.D * fa(44) / fa(CAMP[0]) * (panel() ? 2.25 : 1.3); tx = s.xe + s.gap / 2 - 1.5; ty = 0.3; }
       else if (kind === 'battery') { az = 62; el_ = 14; dist = 10.5; tx = xc - 0.1; ty = 0.5; }
       else if (kind === 'regen') { az = 66; el_ = 12; dist = 8.0; tx = xc - 1.0; ty = 0.45; tz = LANE + 0.2; }
-      else { az = 18; el_ = 24; dist = cs.D * (panel() ? 2.2 : 1.3); tx = s.xe + s.gap * 0.5 + 9; ty = 0.3; }
-      var dbg = window.__hmcam; if (dbg && kind === 'over') { az = dbg.az; el_ = dbg.el; dist = dbg.dist; tx = xc + dbg.tx; ty = dbg.ty; tz = LANE + (dbg.tz || 0); }
+      else { var spp = s.gap + 2 * CARL + s.lead * 3, thh = Math.tan(THREE.MathUtils.degToRad(CAMP[2] / 2)) * camera.aspect; az = 30; el_ = 26; dist = Math.max(cs.D, (spp * Math.sin(THREE.MathUtils.degToRad(az)) + 5) / (2 * thh * (panel() ? 0.48 : 0.7))); tx = s.xe - CARL + spp / 2 - (panel() ? 3 : 4); ty = 0.3; }
       var a = THREE.MathUtils.degToRad(az), e = THREE.MathUtils.degToRad(el_);
       out.set(tx - dist * Math.cos(e) * Math.cos(a), ty + dist * Math.sin(e), tz + dist * Math.cos(e) * Math.sin(a)); look.set(tx, ty, tz);
     }
@@ -473,20 +472,32 @@
     // tags: a = anchor ('c' centred above the point, 'b' centred below, 'r' right-aligned left of the point)
     function put(id, p, on, text, a, dx, dy) {
       var t = tags[id]; if (text !== undefined && t.txt !== text) { t.n.innerHTML = text; t.txt = text; }
+      if (a === 'r' && t.n.offsetWidth) { var mxl = t.n.offsetWidth + 10 - (dx || 0); if (p.x < mxl) p = { x: mxl, y: p.y, ok: p.ok }; }
       var tr = a === 'b' ? 'translate(-50%,0)' : a === 'r' ? 'translate(-100%,-50%)' : 'translate(-50%,-100%)';
+      if (p.ok && (p.x < 6 || p.x > Hw() - 6 || p.y < 6 || p.y > Hh_() - 6)) p = { x: p.x, y: p.y, ok: false };
       t.n.style.opacity = on * (p.ok ? 1 : 0); t.n.style.transform = 'translate(' + (p.x + (dx || 0)).toFixed(1) + 'px,' + (p.y + (dy || 0)).toFixed(1) + 'px) ' + tr;
+      var w = t.n.offsetWidth, h = t.n.offsetHeight, x = p.x + (dx || 0), y = p.y + (dy || 0); t.px = x; t.py = y; t.tr = tr; t.r = { x0: a === 'r' ? x - w : x - w / 2, y0: a === 'b' ? y : a === 'r' ? y - h / 2 : y - h, w: w, h: h, on: on * (p.ok ? 1 : 0) };
     }
-    var gk = cache.gk, rk = cache.rk, pk = cache.pk, xk = cache.bk;
+    var gk = cache.gk, rk = cache.rk, pk = cache.pk, xk = cache.bk, fid = S.phase === 'overview' ? S.hovered : S.selected;
+    var own = function (id) { return fid === id || fid === null ? 1 : 0; };
+    gk *= own('gap'); rk *= own('regen'); pk *= own('planner'); xk *= own('battery');
+    if (phone() && S.phase === 'overview') { gk = rk = pk = xk = 0; }   // on a phone the hotspot name stands alone; the overlay tags appear in the detail view
     put('gap', P(s.xe + s.gap * 0.8, 0.06, Z + 0.55), gk, 'gap <b>' + fx(s.gap, 1) + ' m</b> (measured)', 'b', 0, 8);
     put('dstar', P(s.xe + dstar * 0.2, 0.06, Z - 0.15), gk, 'd* = ' + fx(PR.d0, 0) + ' + ' + fx(PR.th, 1) + ' \u00d7 ' + fx(s.v, 1) + ' = <b>' + fx(dstar, 1) + ' m</b> (desired)', 'c', 0, -8);
     put('floor', P(s.xe + floor * 0.55, 0.06, Z - 0.85), gk * (selD === 'gap' ? 1 : 0), 'floor = ' + fx(PR.dmina, 0) + ' + ' + fx(PR.dminb, 1) + ' \u00d7 ' + fx(s.v, 1) + ' = <b>' + fx(floor, 1) + ' m</b>', 'c', 0, -8);
-    var back = s.pb < 0, lp = P(xc - 2.5, 0.8, Z + 0.3);
+    var back = s.pb < 0, lp = P(xc - 2.2, 0.9, Z - 0.9); lp.y -= 46;
     put('batt', lp, xk * (selD === 'battery' || S.hovered === 'battery' ? 1 : 0), (back ? 'back to the battery ' : 'from the battery ') + '<b>' + fx(Math.abs(s.pb), 1) + ' kW</b>', 'r', -14, 0);
     var capw = clamp(s.bk / PR.cap, 0, 1) * 100, rgOn = rk * (selD === 'regen' || S.hovered === 'regen' ? 1 : 0);
     put('regen', lp, rgOn, 'regen to the battery <b>' + fx(s.rg, 1) + ' kW</b><span class="hm-cap"><i style="width:' + capw.toFixed(1) + '%"></i></span><small>braking at the wheels ' + fx(s.bk, 1) + ' kW of the ' + fx(PR.cap, 0) + ' kW cap (assumed)</small>', 'r', -14, 0);
     var xf = xl + HALF, pl = [5, 15];
     pl.forEach(function (tau, i) { put('pl' + (i === 0 ? 1 : 3), P(xf + s.lead * tau, 0.2, Z), pk * 0.95, '+' + tau + ' s', 'c', 0, -4); }); put('pl2', P(xf, 0, Z), 0, undefined, 'c');
     put('plc', P(xf + s.lead * 2.0, 0.3, Z + 0.5), pk, 'assumed: the lead keeps ' + fx(s.lead, 1) + ' m/s' + (selD === 'planner' ? '<br><i>rings: where it really was</i>' : ''), 'b', 0, 8);
+    var ord = ['gap', 'dstar', 'floor', 'batt', 'regen', 'pl1', 'pl3', 'plc'], done = [];
+    ord.forEach(function (k) {
+      var t = tags[k], r = t.r; if (!r || r.on < 0.25 || !r.w) return;
+      for (var pass = 0; pass < 4; pass++) { var hit = null; for (var q = 0; q < done.length; q++) { var o = done[q]; if (r.x0 < o.x0 + o.w + 4 && r.x0 + r.w + 4 > o.x0 && r.y0 < o.y0 + o.h + 4 && r.y0 + r.h + 4 > o.y0) { hit = o; break; } } if (!hit) break; var d = hit.y0 + hit.h + 4 - r.y0; r.y0 += d; t.py += d; }
+      t.n.style.transform = 'translate(' + t.px.toFixed(1) + 'px,' + t.py.toFixed(1) + 'px) ' + t.tr; done.push(r);
+    });
     if (S.phase === 'detail' || S.phase === 'entering') {
       var an = ({
         gap: [P(s.xe + dstar, 0.06, Z - 0.15), P(s.xe + floor, 0.06, Z - 0.85), P(s.xe + s.gap, 0.06, Z + 0.55)],
@@ -494,7 +505,16 @@
         regen: [P(xc - 1.38, 0.33, Z + 0.95), P(xc - 1.38, 0.42, Z + 0.1), P(xc, 1.8, Z)],
         planner: [P(xc, 2.0, Z), P(xf + s.lead * 3, 0.2, Z), P(xl, 1.7, Z)]
       })[S.selected], mx = panel() ? 0.62 : 1;
-      annoBtn.forEach(function (a, i) { var p = an[i]; a.style.left = clamp(p.x, 30, Hw() * mx - 20).toFixed(1) + 'px'; a.style.top = clamp(p.y, 36, Hh_() - 30).toFixed(1) + 'px'; a.style.opacity = p.ok ? '' : 0; a.classList.toggle('flip', p.x > Hw() * 0.4); });
+      var x1 = Hw() * mx - 24, y1 = Hh_() - 30, placed = [], rects = [];
+      Object.keys(tags).forEach(function (k) { var r = tags[k].r; if (r && r.on > 0.25 && r.w) rects.push(r); });
+      var hit = function (x, y) { for (var q = 0; q < rects.length; q++) { var r = rects[q]; if (x + 19 > r.x0 && x - 19 < r.x0 + r.w && y + 19 > r.y0 && y - 19 < r.y0 + r.h) return true; } for (q = 0; q < placed.length; q++) if (Math.hypot(x - placed[q][0], y - placed[q][1]) < 40) return true; return false; };
+      var nud = [[0, 0], [0, -40], [0, 40], [-40, 0], [40, 0], [-40, -40], [40, -40], [-40, 40], [40, 40], [0, -80], [0, 80]];
+      annoBtn.forEach(function (a, i) {
+        var p = an[i], x = p.x, y = p.y, ok = p.ok && x >= 24 && x <= x1 && y >= 30 && y <= y1;
+        if (ok) { ok = false; for (var q = 0; q < nud.length; q++) { var cx = x + nud[q][0], cy = y + nud[q][1]; if (cx < 24 || cx > x1 || cy < 30 || cy > y1) continue; if (!hit(cx, cy)) { x = cx; y = cy; ok = true; break; } } }
+        if (ok) placed.push([x, y]);
+        a.style.left = x.toFixed(1) + 'px'; a.style.top = y.toFixed(1) + 'px'; a.style.visibility = ok ? '' : 'hidden'; a.style.opacity = ''; a.classList.toggle('flip', x > Hw() * 0.4);
+      });
     }
     paintReadout(s);
   }
@@ -509,7 +529,7 @@
   function schedule() { if (!raf && active() && !S.reduced) raf = requestAnimationFrame(loop); }
   var drawPending = 0;
   function requestDraw() { if (!G || failed) return; if (!S.reduced) { schedule(); return; } if (!drawPending) drawPending = requestAnimationFrame(function () { drawPending = 0; requestDrawNow(); }); }
-  function requestDrawNow() { if (!G) return; advance(0.016); if (S.reduced) { cache.gk = targets().gap; cache.xk = targets().xray; cache.rk = targets().regen; cache.pk = targets().planner; cache.bk = targets().battk; kDet = S.phase === 'overview' ? 0 : (S.phase === 'returning' ? 0 : 1); } draw(0.016); }
+  function requestDrawNow() { if (!G) return; if (S.reduced) G.cs.fresh = 1; advance(0.016); if (S.reduced) { cache.gk = targets().gap; cache.xk = targets().xray; cache.rk = targets().regen; cache.pk = targets().planner; cache.bk = targets().battk; kDet = S.phase === 'overview' ? 0 : (S.phase === 'returning' ? 0 : 1); } draw(0.016); }
   function fpsTick(ts) { fpsLog.total++; if (!fpsLog.t0) { fpsLog.t0 = ts; fpsLog.n = 0; } fpsLog.n++; if (ts - fpsLog.t0 >= 1000) { fpsLog.v = fpsLog.n * 1000 / (ts - fpsLog.t0); fpsLog.min = Math.min(fpsLog.min, fpsLog.v); fpsLog.t0 = ts; fpsLog.n = 0; } }
   if (window.IntersectionObserver) new IntersectionObserver(function (es) { visible = es[es.length - 1].isIntersecting; last = 0; if (visible) { schedule(); requestDraw(); } }).observe(plane);
   document.addEventListener('visibilitychange', function () { last = 0; if (!document.hidden) { schedule(); requestDraw(); } });
@@ -535,7 +555,7 @@
     }, function (err) { toStill(String(err && err.message || err)); });
   }
   window.__hm = {
-    S: S, state: function () { return JSON.parse(JSON.stringify(S)); }, fps: function () { return { now: fpsLog.v, min: fpsLog.min, total: fpsLog.total }; }, speed: function () { return spd; }, loop: function () { return loopState; }, enter: enter, back: back, snap: snap, TEND: TEND, T_STILL: T_STILL,
+    cache: cache, S: S, state: function () { return JSON.parse(JSON.stringify(S)); }, fps: function () { return { now: fpsLog.v, min: fpsLog.min, total: fpsLog.total }; }, speed: function () { return spd; }, loop: function () { return loopState; }, enter: enter, back: back, snap: snap, TEND: TEND, T_STILL: T_STILL,
     gl: function () { return G; }, hot: function () { return HOT.map(function (h) { var b = hotBtn[h.id]; return { id: h.id, x: parseFloat(b.style.left), y: parseFloat(b.style.top) }; }); }, setT: function (t) { S.t = t; if (G) G.cs.fresh = 1; requestDraw(); }, still: function () { return { t: T_STILL }; }
   };
 })();
