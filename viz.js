@@ -11,7 +11,7 @@
   /* ---------- hero: one real window, lead / recorded follower / our car ---------- */
   function hero(el, H) {
     const W = Math.max(280, Math.floor(el.clientWidth)), narrow = W < 480;
-    const m = { l: 36, r: 6 }, hh = 18, gap = 16, bot = 20, fillH = el.dataset.fill ? Math.floor(el.clientHeight) : 0, plot = fillH >= 230 ? fillH - (2 * hh + gap + bot) : 0;
+    const m = { l: 36, r: 6 }, hh = 18, gap = 16, bot = 20, fillH = el.dataset.fill ? Math.floor(el.clientHeight) : 0, plot = fillH >= 190 ? fillH - (2 * hh + gap + bot) : 0;
     const hs = plot ? Math.round(plot * 0.6) : (W < 400 ? 110 : 150), hg = plot ? plot - hs : (W < 400 ? 56 : 90);
     const y1 = hh, y2 = hh + hs + gap + hh, Ht = y2 + hg + bot, T = H.t[H.t.length - 1];
     const X = v => m.l + (v / T) * (W - m.l - m.r);
@@ -72,4 +72,5 @@
   const sc = $('hero-scrub'); if (sc) sc.dataset.idle = sc.textContent;
   draw(); let tm = 0; window.addEventListener('resize', () => { clearTimeout(tm); tm = setTimeout(draw, 120); });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { lastW = 0; draw(); });
+  { const hc = $('hero-chart'); if (hc && hc.dataset.fill && window.ResizeObserver) { let rt = 0; new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(draw, 60); }).observe(hc); } }   // the chart card changes height with the window (Home fills one screen)
 })();

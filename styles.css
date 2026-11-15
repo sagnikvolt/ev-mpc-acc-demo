@@ -1007,3 +1007,44 @@ html.rm .vs-car-visual{transform:none!important}
 @media(prefers-reduced-motion:reduce){.hs *,.hs *::before,.hs *::after{animation:none!important;transition-duration:.01ms!important}}
 html.rm .hs-ring:after{animation:none}
 .rail>.keepstat{flex:none;margin:0;padding:8px 16px;border-bottom:1px solid var(--line)}
+/* ===== Round t: Home hero fits one screen on desktop (width >= 1024 and height >= 560). The band is exactly 100svh minus the sticky header; headline card on top, scene card fills the rest of the left column, the chart card stretches to the same height. Below that the stacked, natural-height layout above stays (phones, tablets, short windows). ===== */
+.hs-fine{padding-top:10px;padding-bottom:4px}
+.hs-fine .hs-note{margin:0 2px}
+.hs-fine .hs-credit{margin:4px 2px 0}
+@media(min-width:1024px) and (min-height:560px){
+ .hs-wrap{max-width:none;width:min(1680px,100% - 48px);padding-left:0;padding-right:0}
+ .hs-band{height:calc(100vh - var(--nav-h,57px));height:calc(100svh - var(--nav-h,57px));min-height:0;display:flex;align-items:stretch}
+ .hs-grid{flex:0 1 auto;min-height:0;padding-top:16px;padding-bottom:16px;gap:20px;grid-template-rows:minmax(0,1fr)}
+ .hs-left{gap:12px;min-height:0}
+ .hs-copy{flex:none;padding:18px 22px 20px;display:grid;grid-template-columns:minmax(0,1fr);row-gap:8px}
+ .hs-copy h1{font-size:clamp(22px,1.9vw,32px);line-height:1.15;margin:0;max-width:none}
+ .hs-copy .lead{margin:0;max-width:none;font-size:14px;line-height:21px}
+ .hs-copy .actions{margin:0;gap:10px}
+ .hs-copy .actions .btn{min-height:40px;height:40px;padding:0 16px;font-size:14px}
+ .hs-card{flex:1 1 0;min-height:0;display:flex;flex-direction:column;padding:8px}
+ .hs-card>.hs{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
+ .hs-main{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
+ .hs-stage{flex:1 1 0;min-height:230px;position:relative}
+ .hs-plane{position:absolute;inset:0;width:auto;height:auto;aspect-ratio:auto}
+ .hm-bar{flex:none;margin-top:8px;gap:8px}
+ .hm-readout>div{padding:6px 12px 5px}
+ .hm-readout dd{font-size:17px;line-height:1.2}
+ .hs .hm-speeds button,.hs button.hm-play,.hm-scrub{height:36px}
+ .hs-detail{overscroll-behavior:contain}
+ .hs:not(.panel-on) .hs-detail{flex:0 1 auto;min-height:0;max-height:50%;overflow:auto}
+ .hs-grid .hero-side{min-height:0}
+ .hs-grid .hero-side .hero-card{flex:1 1 0;min-height:0;padding:14px 18px 16px}
+ .hs-grid .hero-side .hero-card #hero-chart{flex:1 1 0;min-height:190px!important;margin-bottom:0}
+ .hs-grid .hero-side .readouts{margin-top:8px;padding-top:8px}
+ .hs-grid .hero-side .cap{flex:none;margin-top:10px;padding:6px 12px}
+}
+@media(min-width:1280px) and (min-height:560px){
+ .hs-copy{grid-template-columns:minmax(0,1fr) auto;column-gap:24px;align-items:end}
+ .hs-copy h1{grid-column:1/-1}
+}
+@media(min-width:1440px) and (min-height:560px){.hs-wrap{width:min(1680px,100% - 64px)}}
+@media(min-width:1024px) and (min-height:560px) and (max-height:760px){
+ .hm-readout dd.hm-sub{display:none}
+ .hs-grid{padding-top:12px;padding-bottom:12px}
+ .hs-copy{padding:14px 20px 16px}
+}

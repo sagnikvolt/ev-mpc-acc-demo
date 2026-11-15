@@ -56,7 +56,8 @@
   S.reduced = !!((mqReduce && mqReduce.matches) || html.classList.contains('rm'));
   if (S.reduced) { S.playing = false; S.t = T_STILL; }
   var phone = function () { return window.innerWidth <= 600; }, PANEL_MIN = 640;
-  var panel = function () { return stage.clientWidth >= PANEL_MIN; };   // wide card: the detail card overlays the scene (else it opens under the scene, inside the card)
+  var fitMode = function () { return window.innerWidth >= 1024 && window.innerHeight >= 560; };   // desktop: the hero band is exactly one screen high and the scene fills its card
+  var panel = function () { return stage.clientWidth >= (fitMode() ? 500 : PANEL_MIN); };   // wide card: the detail card overlays the scene (else it opens under the scene, inside the card)
   var panelFrac = function () { if (!panel()) return 0; var w = detail.offsetWidth || Math.min(380, Math.max(290, stage.clientWidth * 0.42)); return clamp((w + 14) / Math.max(1, plane.clientWidth), 0, 0.55); };
   var ASPECT = 16 / 9, G = null, failed = false, visible = true, raf = 0, rendering = false;
   var transT0 = 0, transDur = 0, kDet = 0, kFrom = 0, kTo = 0, request = 0, timer = 0;
@@ -65,13 +66,16 @@
 
   /* ------------------------------------------------------------ plane geometry */
   function updatePlane() {
-    var width = stage.getBoundingClientRect().width;
-    ASPECT = phone() ? 1.25 : 16 / 9;
-    root.style.setProperty('--hs-h', (width / ASPECT) + 'px');
+    setNavH();
+    var pw = plane.clientWidth, ph = plane.clientHeight;
+    ASPECT = pw > 20 && ph > 20 ? pw / ph : (phone() ? 1.25 : 16 / 9);   // the plane has the card's real shape (it is no longer fixed at 16:9 on desktop)
+    root.style.setProperty('--hs-h', ph + 'px');
     var po = panel(); if (po !== lastPanel) { lastPanel = po; render(); }
-    if (G) G.resize(); requestDraw(); placeStillHot();
+    if (G) { G.resize(); G.cs.fresh = 1; } requestDraw(); placeStillHot();
   }
   var lastPanel = null;
+  var navEl = document.querySelector('header.nav');
+  function setNavH() { if (navEl) document.documentElement.style.setProperty('--nav-h', navEl.getBoundingClientRect().height + 'px'); }
 
   /* ------------------------------------------------------------ small DOM pieces: hotspots, overlay tags, back button, detail card */
   var hotBtn = {}, annoBtn = [], tags = {};
@@ -147,7 +151,7 @@
       statusEl.hidden = !st; statusEl.innerHTML = st ? '<span class="hs-small-dot"></span>' + esc(st) : '';
       sr.textContent = b ? (S.phase === 'entering' ? 'Opening ' : 'Closing ') + cur.label : S.phase === 'detail' ? cur.label + ' view. Press Escape to return.' : 'Moving cars. Choose a point.';
       errEl.hidden = !S.error; errEl.querySelector('span').textContent = S.error || '';
-      var base = $('.hs-baseline-r'); if (base) base.textContent = overview ? 'Hover or tap a point. Press Escape to come back.' : 'Playback is paused while you read.';
+      var base = document.querySelector('.hs-baseline-r'); if (base) base.textContent = overview ? 'Hover or tap a point. Press Escape to come back.' : 'Playback is paused while you read.';
       playBtn.innerHTML = S.playing ? ICON.pause : ICON.play; playBtn.setAttribute('aria-label', S.playing ? 'Pause' : 'Play');
       speedBtns.forEach(function (sb) { sb.setAttribute('aria-pressed', +sb.getAttribute('data-speed') === S.speed ? 'true' : 'false'); });
       var ctl = !S.reduced; playBtn.hidden = !ctl; $('.hm-speeds').hidden = !ctl;
@@ -166,7 +170,8 @@
   /* ------------------------------------------------------------ fallback: pre-rendered still with the same hotspots */
   var STILLHOT = STILL.hot || { gap: [47, 52], battery: [36, 78], regen: [27, 72], planner: [36, 30] };
   function coverXY(p) {   // image percent (16:9) -> frame percent when the frame is narrower (object-fit: cover, centred)
-    var fr = ASPECT, im = 16 / 9; if (fr >= im - 0.001) return p;
+    var fr = ASPECT, im = 16 / 9; if (Math.abs(fr - im) < 0.001) return p;
+    if (fr > im) { var hh = im / fr; return [p[0], clamp(50 + (p[1] - 50) / hh, 6, 94)]; }   // frame wider than the picture: top and bottom are cropped
     var w = fr / im; return [clamp(50 + (p[0] - 50) / w, 3, 97), p[1]];
   }
   function placeStillHot() {
@@ -566,6 +571,7 @@
   /* ------------------------------------------------------------ boot */
   if (window.ResizeObserver) { var ro = new ResizeObserver(updatePlane); ro.observe(stage); }
   window.addEventListener('resize', updatePlane);
+  if (window.ResizeObserver && navEl) new ResizeObserver(setNavH).observe(navEl);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(updatePlane);
   updatePlane(); render(); paintReadout(snap(S.t), true);
   function hasWebGL() { try { var c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch (e) { return false; } }
