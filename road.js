@@ -103,9 +103,17 @@
       const lanes = D.lanes.length ? D.lanes : [null], rp = D.rec ? lerp(D.rec.pos, f) : null;
       const car = (front, kind, col, roadTop) => {
         const x2 = X(front), x1 = x2 - len, bb = roadTop - wr * 1.1, bt = bb - bodyH; if (x2 < gl - 4 || x1 > W - gr + 4) return;
+        // ride over the road: each wheel rises on a speed-breaker hump and drops into a pothole; the body tilts between the two wheels (drawing only)
+        const lift = xw => { let h = 0; if (!D.obst) return 0; const hwm = Math.max(9, 1.6 * ppm) / ppm, pk = (single ? 9 : 7) * 0.95;
+          for (const xb of (D.obst.breakers || [])) { const dd = Math.abs(xw - xb); if (dd < hwm) h = Math.max(h, pk * (1 - (dd / hwm) * (dd / hwm))); }
+          for (const pp of (D.obst.potholes || [])) if (xw >= pp[0] && xw <= pp[1]) h = Math.min(h, -2.5);
+          return h; };
+        const lr = lift(front - CAR * 0.78), lf = lift(front - CAR * 0.22), tilted = lr !== 0 || lf !== 0;
+        if (tilted) { const xm = x1 + len / 2, k = -(lf - lr) / (len * 0.56); c.save(); c.translate(xm, -(lf + lr) / 2); c.transform(1, k, 0, 1, 0, 0); c.translate(-xm, 0); }
         c.lineWidth = 1.5; c.strokeStyle = col; c.fillStyle = col;
         c.beginPath(); if (c.roundRect) c.roundRect(x1, bt, len, bodyH, 3); else c.rect(x1, bt, len, bodyH); if (kind === 'rec') c.stroke(); else c.fill();
         for (const u of [0.22, 0.78]) { c.beginPath(); c.arc(x1 + len * u, roadTop - wr, wr, 0, 6.2832); c.fillStyle = C.card; c.fill(); c.stroke(); }
+        if (tilted) c.restore();
       };
       lanes.forEach((ln, i) => {
         const y0 = HEAD + i * LH, roadTop = y0 + LH - 20, roadH = single ? 16 : 12;

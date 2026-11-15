@@ -99,7 +99,7 @@ function lockRail(v) { document.querySelectorAll(RAIL_CTRL).forEach(e => { e.dis
 function resetStage() {
   $('tab-matlab').hidden = true; $('mlpanel').innerHTML = ['t1m', 't3m'].map(i => { $(i).hidden = true; return ''; }).join(''); if ($('tab-matlab').getAttribute('aria-selected') === 'true') activateTab('table', false);
   hasRun = false; $('out').style.display = 'none'; $('empty').hidden = false; $('export').disabled = true; $('qd').hidden = true; $('qd').open = false; $('queue').innerHTML = ''; $('status').textContent = '';
-  ['t1', 't2', 't3', 't4'].forEach(i => { $(i).textContent = '-'; }); $('t2s').textContent = 'recorded follower, same battery model'; $('t1s').textContent = 'Wh/km, MPC const-speed'; $('t3s').textContent = 'Wh/km, same window'; $('t3').parentNode.querySelector('.tl').textContent = 'vs tuned ACC'; window.__lastRun = null;
+  ['t1', 't2', 't3', 't4'].forEach(i => { $(i).textContent = '-'; }); $('t2s').textContent = 'recorded follower, same battery model'; $('t2').parentNode.querySelector('.tl').textContent = 'vs normal car'; $('t1s').textContent = 'Wh/km, MPC const-speed'; $('t3s').textContent = 'Wh/km, same window'; $('t3').parentNode.querySelector('.tl').textContent = 'vs tuned ACC'; window.__lastRun = null;
   if (!running && readyInfo) setChip('idle', 'Idle');
 }
 async function preview() {
@@ -166,7 +166,7 @@ function setTiles(R, rec, mode, secs, ml, road) {
   const rd = !!road && road !== 'plain', m = R[rd ? 'mpc_map_L' : 'mpc_const'], a = R[rd ? 'acc_map' : 'acc'], nm = rd ? 'MPC with map' : 'MPC const-speed';
   $('t3').parentNode.querySelector('.tl').textContent = rd ? 'vs ACC with map' : 'vs tuned ACC';
   $('t1').textContent = m ? fmt(m.whkm_adj, 1) : '-'; $('t1s').textContent = m ? 'Wh/km, ' + nm : nm + ' not selected';
-  if (rd) { $('t2').textContent = 'n/a'; $('t2s').textContent = 'the recorded follower drove on the plain road'; } else if (mode !== 'window') { $('t2').textContent = 'n/a'; $('t2s').textContent = mode === 'matlab' ? 'no recording for this trace' : 'no recording for an upload'; } else { $('t2').textContent = m && rec ? sgn(pct(m.whkm_adj, rec.whkm_adj)) : '-'; $('t2s').textContent = 'recorded follower, same battery model'; }
+  if (rd) { const oc = R.mpc_map_L || R.mpc_const_blind || m, ex = oc ? (oc.cross_excess_max !== undefined ? oc.cross_excess_max : oc.cross_excess) : null; $('t2').parentNode.querySelector('.tl').textContent = 'Over the breakers'; $('t2').textContent = ex === null || ex === undefined ? '-' : (ex * 3.6 <= 0.05 ? 'within limit' : '+' + (ex * 3.6).toFixed(1) + ' km/h'); $('t2s').textContent = `our car's fastest crossing above the 15 km/h breaker speed (${oc && oc.ncross !== undefined ? oc.ncross : 0} crossings)`; } else if (mode !== 'window') { $('t2').parentNode.querySelector('.tl').textContent = 'vs normal car'; $('t2').textContent = 'n/a'; $('t2s').textContent = mode === 'matlab' ? 'no recording for this trace' : 'no recording for an upload'; } else { $('t2').parentNode.querySelector('.tl').textContent = 'vs normal car'; $('t2').textContent = m && rec ? sgn(pct(m.whkm_adj, rec.whkm_adj)) : '-'; $('t2s').textContent = 'recorded follower, same battery model'; }
   $('t3').textContent = m && a ? sgn(pct(m.whkm_adj, a.whkm_adj)) : '-'; $('t3s').textContent = rd ? 'Wh/km, MPC with map vs ACC with map' : 'Wh/km, same window'; $('t4').textContent = secs.toFixed(1) + ' s';
   $('t1m').hidden = $('t3m').hidden = true;
   if (ml) {   // 5th line: MATLAB's own numbers for this window (only the ACC and the MPC const-speed were ported)
