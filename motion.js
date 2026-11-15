@@ -57,7 +57,7 @@
 
  /* blur text on the Home headline */
  function blur() {
-  var h = PAGE === 'replay' && $('#h1'); if (!h || h._bt) return; h._bt = 1; var parts = h.textContent.split(/(\s+)/), i = 0; h.textContent = '';
+  var h = PAGE === 'home' && $('#h1'); if (!h || h._bt) return; h._bt = 1; var parts = h.textContent.split(/(\s+)/), i = 0; h.textContent = '';
   parts.forEach(function (w) { if (!w) return; if (/^\s+$/.test(w)) { h.appendChild(D.createTextNode(w)); return; } var s = D.createElement('span'); s.className = 'mo-bt'; s.style.setProperty('--i', i++); s.textContent = w; h.appendChild(s); });
  }
 
@@ -81,10 +81,11 @@
     setTimeout(function () { e.classList.remove('mo-t'); e.style.transitionDelay = ''; }, 900);
    });
   }, { threshold: [0, .01, .02, .03, .05, .08, .1, .12, .15] });
+  var hid = (location.hash || '').slice(1); list = list.filter(function (e) { return !hid || (e.id !== hid && !e.contains(document.getElementById(hid))); });   // the section a link points at is shown at once
   list.forEach(function (e) { e.classList.add('mo-pre'); io.observe(e); });
   // safety net: anything still hidden that is on screen when scrolling stops (tall cards, jumps, smooth scroll) is shown at once
   var sw = function () { $$('.mo-pre').forEach(function (e) { var r = e.getBoundingClientRect(); if (r.top < innerHeight - 40 && r.bottom > 40) { io.unobserve(e); e.classList.remove('mo-pre'); } }); }, st = 0;
-  addEventListener('scroll', function () { clearTimeout(st); st = setTimeout(sw, 180); }, { passive: true }); addEventListener('hashchange', function () { setTimeout(sw, 700); }); setTimeout(sw, 1500);
+  addEventListener('scroll', function () { clearTimeout(st); st = setTimeout(sw, 180); }, { passive: true }); addEventListener('hashchange', function () { setTimeout(sw, 700); }); setTimeout(sw, 1500); addEventListener('load', function () { requestAnimationFrame(sw); });
   var ch = $$('.ov-chart').filter(function (e) { return e.getBoundingClientRect().top > vh * .85; });
   var io2 = new IntersectionObserver(function (es) { es.forEach(function (x) { if (x.isIntersecting && (x.intersectionRatio >= .15 || x.intersectionRect.height >= 120)) { io2.unobserve(x.target); drawIn(x.target); } }); }, { threshold: [0, .01, .02, .03, .05, .08, .1, .12, .15] });
   ch.forEach(function (e) { e.classList.add('dr-pre'); io2.observe(e); });
@@ -105,7 +106,7 @@
 
  /* dot grid behind the Home glass panels: dots near the cursor brighten (30 fps cap, paused when hidden/off-screen) */
  function dots() {
-  var b = PAGE === 'replay' && $('.hero-band'); if (!b || $('.hero-dots') || RM()) return; var c = D.createElement('canvas'), bg = $('.hero-bg', b); c.className = 'hero-dots'; c.setAttribute('aria-hidden', 'true'); if (bg) bg.after(c); else b.prepend(c);
+  var b = PAGE === 'home' && $('.hero-band'); if (!b || $('.hero-dots') || RM()) return; var c = D.createElement('canvas'), bg = $('.hero-bg', b); c.className = 'hero-dots'; c.setAttribute('aria-hidden', 'true'); if (bg) bg.after(c); else b.prepend(c);
   var x = c.getContext('2d'), w = 0, h = 0, mx = -999, my = -999, s = 0, tgt = 0, vis = true, last = 0, run = 0, S = 24, R = 150;
   function size() { var r = b.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1); w = r.width; h = r.height; c.width = Math.round(w * d); c.height = Math.round(h * d); x.setTransform(d, 0, 0, d, 0, 0); draw(); }
   function draw() {
