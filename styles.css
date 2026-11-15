@@ -604,3 +604,4 @@ html{scrollbar-gutter:stable}
 .mlfig{margin:14px 0 0;max-width:46rem}.mlfig .gal-b{display:block;width:100%;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:zoom-in}.mlfig img{display:block;width:100%;height:auto;border-radius:9px}.mlfig figcaption{margin-top:6px}
 
 .brand{display:inline-flex;align-items:center;gap:10px}.brand img{display:block;border-radius:6px}
+.nv-t td.nv-y{color:var(--text)}.nv-t td.nv-n{color:var(--text3)}.nv-t tr.hl td{color:var(--accent);font-weight:500}.nv-t tr.hl td:first-child{color:var(--text)}
