@@ -681,6 +681,7 @@ main{view-transition-name:page-main}
 .runbtn.star::before{content:"";position:absolute;z-index:-2;left:50%;top:50%;width:520px;height:520px;margin:-260px 0 0 -260px;background:conic-gradient(from 0deg,transparent 0 72%,var(--accent) 92%,#fff 100%);animation:star-spin 2.6s linear infinite}
 .runbtn.star::after{content:"";position:absolute;z-index:-1;inset:2px;border-radius:8px;background:inherit}
 @keyframes star-spin{to{transform:rotate(1turn)}}
+.runbtn.star:disabled{opacity:1;color:var(--text);background:var(--raised)}.runbtn.star:disabled::after{background:var(--raised)}
 /* lattice loader (replaces the dot while the engine loads) */
 .chip .lat{display:none;grid-template-columns:repeat(3,2px);gap:2px;flex:none;margin:0 -2px}
 .chip[data-s=loading] .lat{display:grid}.chip[data-s=loading] i{display:none}
