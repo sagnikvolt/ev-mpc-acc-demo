@@ -391,7 +391,7 @@
       if (!MODELDATA || api.model) return;
       scene.remove(lead.g); scene.remove(ours.g);
       CAR = CARS.model; CARL = CAR.len; HALF = CARL / 2;
-      lead = makeModelCar({ body: 0xc9d0d5, roof: 0x2b3136 }, false); ours = makeModelCar({ body: P_.dark ? 0x1fb5a5 : 0x14a193, roof: 0xe9eff0 }, true);
+      lead = makeModelCar({ body: 0xc9d0d5, roof: 0x2b3136 }, false); ours = makeModelCar({ body: P_.dark ? 0x1fb5a5 : 0x14a193, roof: 0x2b3136 }, true);
       scene.add(lead.g, ours.g); ours.g.add(inner); buildInner(); api.ours = ours; api.lead = lead; api.model = true; cs.fresh = 1;
     }
 
