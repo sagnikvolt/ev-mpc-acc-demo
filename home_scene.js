@@ -1,5 +1,5 @@
 'use strict';
-/* Home scene (round s): a dark, calm scene card with two STYLISED 3D cars driving the real recorded window (data/hero.json, embedded in the page as #hm-data).
+/* Home scene (round s, car model round v): a dark, calm scene card with two 3D cars (a simplified, recoloured car model decoded from media/home3d/car.bin; the stylised cars below are the fallback) driving the real recorded window (data/hero.json, embedded in the page as #hm-data).
    Lead car = recorded lead speed; our car = our MPC controller's simulated run behind it; gaps to scale; battery power per step computed at build time with the project's own
    plant functions (demo_v2/export_hero_power.py, python/mpc_acc.py). Four hotspots anchored to 3D points (the gap, the battery, regen, the planner) open detail views over the card.
    The playback time is ONE clock shared with the window chart card beside it: this script announces its time as ev:scrub (scope hero) and follows the chart when it is hovered.
@@ -37,6 +37,9 @@
 
   /* ------------------------------------------------------------ data */
   var N = H.v.length, DT = H.dt, TEND = (N - 1) * DT, LANE = -1.75, CARL = 4.5, HALF = CARL / 2;
+  /* car specs: the stylised fallback cars (4.5 m) and, after car.bin is decoded, the car model (real length, bumper to bumper, so the drawn gap equals the data gap). All lengths in metres. */
+  var CARS = { styl: { len: 4.5, wf: 1.38, wr: -1.38, R: 0.334, sideZ: 0.9, wheelZ: 0.96, roofY: 1.47, packX: -0.1, packY: 0.3, packL: 2.55, packW: 1.28, motorX: -1.38, motorY: 0.42, motorW: 0.62, axleY: 0.334, axleW: 1.6, camK: 1,
+      cab: [[0.95, 0.31, 0.42], [-0.2, 0.33, 0.42], [-1.05, 0.36, 0.40], [-1.36, 0.41, 0.2]] } }, CAR = CARS.styl, MODELDATA = null, MODELFAIL = false;
   var X = [0], XL = [0];
   for (var i = 0; i < N - 1; i++) { X.push(X[i] + 0.5 * (H.v[i] + H.v[i + 1]) * DT); XL.push(XL[i] + 0.5 * (H.lead[i] + H.lead[i + 1]) * DT); }
   function samp(a, t) { var f = clamp(t / DT, 0, a.length - 1), i = Math.min(Math.floor(f), a.length - 2); return a[i] + (a[i + 1] - a[i]) * (f - i); }
@@ -133,7 +136,7 @@
       root.className = 'hs hs-hm phase-' + S.phase + (panel() ? ' panel-on' : '') + (S.reduced ? ' reduced' : '') + (S.mode === 'gl' ? ' gl-on' : '') + (S.mode === 'still' ? ' still-on' : '');
       root.setAttribute('aria-busy', b ? 'true' : 'false');
       hotLayer.hidden = !(overview && S.mode !== 'loading');
-      HOT.forEach(function (item) { hotBtn[item.id].className = 'hs-hotspot' + (S.hovered === item.id ? ' active' : ''); });
+      HOT.forEach(function (item) { hotBtn[item.id].className = 'hs-hotspot' + (S.hovered === item.id ? ' active' : ''); hotBtn[item.id].style.opacity = S.hovered && S.hovered !== item.id ? '0' : ''; });
       if (!overview) {
         if (!backBtn) { backBtn = el('button', 'hs-back', { type: 'button', 'aria-label': 'Back to the moving cars' }, ICON.back + '<span></span><kbd>Esc</kbd>'); backBtn.addEventListener('click', back); backSlot.appendChild(backBtn); }
         backBtn.disabled = b; backBtn.querySelector('span').textContent = S.phase === 'returning' ? 'Returning' : 'Back to the cars';
@@ -328,7 +331,7 @@
       // shadows under the car
       var sh1 = new THREE.Mesh(shGeo, new THREE.MeshBasicMaterial({ map: shTex, color: 0x000000, transparent: true, depthWrite: false, opacity: 0.55 * P_.shadow / 0.55 })); sh1.scale.set(7.4, 1, 3.7); sh1.position.y = 0.022; g.add(sh1);
       var sh2 = new THREE.Mesh(shGeo, new THREE.MeshBasicMaterial({ map: shTex, color: 0x000000, transparent: true, depthWrite: false, opacity: 0.6 * P_.shadow / 0.55 })); sh2.scale.set(5.0, 1, 2.2); sh2.position.y = 0.026; g.add(sh2);
-      return { g: g, wheels: wheels, body: body, roof: roof, glass: glass, tailM: tailM, rimM: rimM, rimR: rimR, fade: fade, bodyMesh: bodyMesh };
+      return { g: g, wheels: wheels, body: body, roof: roof, glass: glass, tailM: tailM, rimM: rimM, rimR: rimR, fade: fade, bodyMesh: bodyMesh, R: 0.334 };
     }
     var lead = makeCar({ body: 0xaab2b8, roof: 0x2b3136 }), ours = makeCar({ body: P_.dark ? 0x1fb5a5 : 0x14a193, roof: 0xe9eff0 });
     (function () {   // name badge on the back of our car (decoration): "SAGNIK"
@@ -344,17 +347,71 @@
     })();
     scene.add(lead.g, ours.g);
 
-    // ---------- inside our car: battery pack, motor, cables and the energy-flow particles
+    // ---------- the car model (decoded from car.bin by decodeCarBin): one set of geometries, two cars with their own materials; wheels are pivot groups so they can spin
+    function modelGeos() {
+      if (MODELDATA.geos) return MODELDATA.geos;
+      return (MODELDATA.geos = MODELDATA.parts.map(function (p) { var gm = new THREE.BufferGeometry(); gm.setAttribute('position', new THREE.BufferAttribute(p.pos, 3)); gm.setAttribute('normal', new THREE.BufferAttribute(p.nor, 3)); gm.setIndex(new THREE.BufferAttribute(p.idx, 1)); gm.computeBoundingSphere(); return gm; }));
+    }
+    function makeModelCar(cfg, isOurs) {
+      var MD = MODELDATA, geos = modelGeos(), g = new THREE.Group(), fade = [], meshes = [], wheels = [];
+      var phys = function (o) { var m = new THREE.MeshPhysicalMaterial(o); m.envMap = envTex; return m; }, stdm = function (o) { var m = new THREE.MeshStandardMaterial(o); m.envMap = envTex; return m; };
+      var M = {
+        paint: phys({ color: cfg.body, roughness: 0.34, metalness: 0.15, clearcoat: 1, clearcoatRoughness: 0.12 }),
+        roof: phys({ color: cfg.roof, roughness: 0.3, metalness: 0.15, clearcoat: 1, clearcoatRoughness: 0.1 }),
+        glass: phys({ color: 0x0d151b, roughness: 0.16, metalness: 0.0, clearcoat: 0.6, clearcoatRoughness: 0.12, envMapIntensity: 0.9 }),
+        trim: stdm({ color: 0x0c0e10, roughness: 0.55, metalness: 0.1 }), chrome: stdm({ color: 0xcfd6db, roughness: 0.28, metalness: 0.85 }),
+        lamp: stdm({ color: 0xdfeaf2, emissive: 0xcfe6ff, emissiveIntensity: 0.9, roughness: 0.3 }), tail: stdm({ color: 0x3a0306, emissive: 0xff1608, emissiveIntensity: 0.7, roughness: 0.3 }),
+        disc: stdm({ color: 0x8b9095, roughness: 0.45, metalness: 0.8 })
+      };
+      var rimM = new THREE.MeshStandardMaterial({ color: 0x6d7780, roughness: 0.3, metalness: 0.85, emissive: P_.accent, emissiveIntensity: 0 }); rimM.envMap = envTex; var rimR = rimM.clone(); rimR.envMap = envTex;
+      var WM = { tyre: stdm({ color: 0x15191c, roughness: 0.85, envMapIntensity: 0.25 }), chrome: M.chrome.clone(), trim: M.trim.clone() };
+      var piv = MD.meta.wheels.map(function (w) { var pg = new THREE.Group(); pg.position.set(w[0], w[1], w[2]); g.add(pg); wheels.push({ piv: pg, spin: pg, rear: w[0] < 0, side: w[2] > 0 }); return pg; });
+      MD.parts.forEach(function (p, i) {
+        var wm = /^wheel(\d)$/.exec(p.g), mat, mesh;
+        if (wm) { mat = p.m === 'rim' ? (piv[+wm[1]].position.x < 0 && isOurs ? rimR : rimM) : WM[p.m] || WM.trim; mesh = new THREE.Mesh(geos[i], mat); piv[+wm[1]].add(mesh); }
+        else { mat = M[p.m] || M.trim; mesh = new THREE.Mesh(geos[i], mat); g.add(mesh); if (p.m !== 'disc') meshes.push(mesh); }
+      });
+      ['paint', 'roof', 'glass', 'trim', 'chrome', 'lamp', 'tail'].forEach(function (k) { fade.push(M[k]); });
+      var C = CARS.model, sc1 = C.len / 4.5;
+      var sh1 = new THREE.Mesh(shGeo, new THREE.MeshBasicMaterial({ map: shTex, color: 0x000000, transparent: true, depthWrite: false, opacity: 0.55 * P_.shadow / 0.55 })); sh1.scale.set(7.4 * sc1, 1, 3.9); sh1.position.y = 0.022; g.add(sh1);
+      var sh2 = new THREE.Mesh(shGeo, new THREE.MeshBasicMaterial({ map: shTex, color: 0x000000, transparent: true, depthWrite: false, opacity: 0.6 * P_.shadow / 0.55 })); sh2.scale.set(5.0 * sc1, 1, 2.4); sh2.position.y = 0.026; g.add(sh2);
+      if (isOurs) {   // number plate on the rear, in the original plate area: "SAGNIK" (decoration)
+        var cv = document.createElement('canvas'); cv.width = 512; cv.height = 128;
+        var paintPlate = function () { var x = cv.getContext('2d'); x.clearRect(0, 0, 512, 128); x.fillStyle = '#e8eef0'; if (x.roundRect) { x.beginPath(); x.roundRect(2, 2, 508, 124, 14); x.fill(); } else x.fillRect(2, 2, 508, 124); x.strokeStyle = '#14a193'; x.lineWidth = 5; if (x.roundRect) { x.beginPath(); x.roundRect(9, 9, 494, 110, 9); x.stroke(); }
+          x.font = '700 70px "IBM Plex Sans", Arial, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; if (x.letterSpacing !== undefined) x.letterSpacing = '12px'; x.fillStyle = '#12313a'; x.fillText('SAGNIK', 256 + 6, 67); };
+        paintPlate(); var ptex = new THREE.CanvasTexture(cv); ptex.anisotropy = 4; if (THREE.SRGBColorSpace) ptex.colorSpace = THREE.SRGBColorSpace;
+        var pm_ = new THREE.MeshBasicMaterial({ map: ptex, transparent: true, depthWrite: false, toneMapped: false, color: 0xc4cccf });
+        var plate = new THREE.Mesh(new THREE.PlaneGeometry(C.plateW, C.plateH), pm_); plate.position.set(-C.len / 2 - 0.004, C.plateY, 0); plate.rotation.y = -Math.PI / 2; plate.renderOrder = 2; g.add(plate); fade.push(pm_);
+        if (document.fonts && document.fonts.load) document.fonts.load('700 70px "IBM Plex Sans"').then(function () { paintPlate(); ptex.needsUpdate = true; }).catch(function () { });
+      }
+      var proxy = {}; Object.defineProperty(proxy, 'renderOrder', { get: function () { return meshes[0] ? meshes[0].renderOrder : 0; }, set: function (v) { meshes.forEach(function (m) { m.renderOrder = v; }); } });
+      return { g: g, wheels: wheels, body: M.paint, roof: M.roof, glass: M.glass, tailM: M.tail, rimM: rimM, rimR: rimR, fade: fade, bodyMesh: proxy, R: C.R };
+    }
+    function applyModel() {
+      if (!MODELDATA || api.model) return;
+      scene.remove(lead.g); scene.remove(ours.g);
+      CAR = CARS.model; CARL = CAR.len; HALF = CARL / 2;
+      lead = makeModelCar({ body: 0xc9d0d5, roof: 0x2b3136 }, false); ours = makeModelCar({ body: P_.dark ? 0x1fb5a5 : 0x14a193, roof: 0xe9eff0 }, true);
+      scene.add(lead.g, ours.g); ours.g.add(inner); buildInner(); api.ours = ours; api.lead = lead; api.model = true; cs.fresh = 1;
+    }
+
+    // ---------- inside our car: battery pack, motor, cables and the energy-flow particles (the layout follows the car in use: buildInner)
     var inner = new THREE.Group(); ours.g.add(inner);
     var cellTex = (function () { var c = document.createElement('canvas'); c.width = 256; c.height = 128; var x = c.getContext('2d'); x.fillStyle = '#12303a'; x.fillRect(0, 0, 256, 128); x.strokeStyle = '#3fe0c8'; x.lineWidth = 2; for (var i = 0; i <= 256; i += 16) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, 128); x.stroke(); } for (var j = 0; j <= 128; j += 16) { x.beginPath(); x.moveTo(0, j); x.lineTo(256, j); x.stroke(); } var t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; })();
     var packM = new THREE.MeshStandardMaterial({ color: 0x10303a, map: cellTex, emissive: 0x2fe3c4, emissiveMap: cellTex, emissiveIntensity: 0.0, roughness: 0.5, metalness: 0.4, transparent: true });
-    var pack = new THREE.Mesh(new THREE.BoxGeometry(2.55, 0.15, 1.28), packM); pack.position.set(-0.1, 0.3, 0); inner.add(pack);
     var motorM = new THREE.MeshStandardMaterial({ color: 0x6b7780, roughness: 0.35, metalness: 0.8, emissive: P_.accent, emissiveIntensity: 0, transparent: true });
-    var motor = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.62, 24).rotateX(Math.PI / 2), motorM); motor.position.set(-1.38, 0.42, 0); inner.add(motor);
-    var axle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.6, 10).rotateX(Math.PI / 2), motorM); axle.position.set(-1.38, 0.334, 0); inner.add(axle);
-    var PATHS = [[[0.95, 0.31, 0.42], [-0.2, 0.33, 0.42], [-1.05, 0.36, 0.40], [-1.36, 0.41, 0.2]], [[0.95, 0.31, -0.42], [-0.2, 0.33, -0.42], [-1.05, 0.36, -0.40], [-1.36, 0.41, -0.2]]].map(function (p) { return new THREE.CatmullRomCurve3(p.map(function (a) { return new THREE.Vector3(a[0], a[1], a[2]); })); });
     var cableM = new THREE.MeshBasicMaterial({ color: 0x9fb3bf, transparent: true, opacity: 0 });
-    PATHS.forEach(function (c) { inner.add(new THREE.Mesh(new THREE.TubeGeometry(c, 30, 0.012, 5), cableM)); });
+    var PATHS = [], innerObj = [];
+    function buildInner() {
+      var C = CAR; innerObj.forEach(function (o) { inner.remove(o); if (o.geometry) o.geometry.dispose(); }); innerObj = [];
+      var add = function (o) { inner.add(o); innerObj.push(o); return o; };
+      add(new THREE.Mesh(new THREE.BoxGeometry(C.packL, 0.15, C.packW), packM)).position.set(C.packX, C.packY, 0);
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, C.motorW, 24).rotateX(Math.PI / 2), motorM)).position.set(C.motorX, C.motorY, 0);
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, C.axleW, 10).rotateX(Math.PI / 2), motorM)).position.set(C.motorX, C.axleY, 0);
+      PATHS = [1, -1].map(function (sg) { return new THREE.CatmullRomCurve3(C.cab.map(function (a) { return new THREE.Vector3(a[0], a[1], a[2] * sg); })); });
+      PATHS.forEach(function (c) { add(new THREE.Mesh(new THREE.TubeGeometry(c, 30, 0.012, 5), cableM)); });
+    }
+    buildInner();
     var NP = 120, pPos = new Float32Array(NP * 3), pU = new Float32Array(NP), pPath = new Uint8Array(NP);
     for (var pi = 0; pi < NP; pi++) { pU[pi] = (pi * 0.6180339) % 1; pPath[pi] = pi % 2; pPos[pi * 3 + 1] = -50; }
     var dotTex = (function () { var c = document.createElement('canvas'); c.width = c.height = 32; var x = c.getContext('2d'), gg = x.createRadialGradient(16, 16, 0, 16, 16, 16); gg.addColorStop(0, 'rgba(255,255,255,1)'); gg.addColorStop(.45, 'rgba(255,255,255,.75)'); gg.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gg; x.fillRect(0, 0, 32, 32); return new THREE.CanvasTexture(c); })();
@@ -399,8 +456,8 @@
       var xc = s.xe - HALF, az, el_, tx = cs.cx, ty = 0.85, tz = LANE, dist = cs.D;
       if (kind === 'over') { az = CAMP[0] + 3.5 * Math.sin(wall / 46 * 6.2832); el_ = CAMP[1] + 1.2 * Math.sin(wall / 37 * 6.2832 + 1) + (S.phase === 'overview' ? 0 : 9 * cache.pk); ty = CAMP[4]; }
       else if (kind === 'gap') { var spn = s.gap + 2 * CARL, fa = function (g) { return spn / 2 * Math.sin(THREE.MathUtils.degToRad(g)) + 2.6; }; az = 44; el_ = 27; dist = cs.D * fa(44) / fa(CAMP[0]) * (panelFrac() > 0 ? 1.55 / (1 - panelFrac()) : 1.3); tx = s.xe + s.gap / 2 - 1.5; ty = 0.3; }
-      else if (kind === 'battery') { az = 62; el_ = 14; dist = 10.5; tx = xc - 0.1; ty = 0.5; }
-      else if (kind === 'regen') { az = 66; el_ = 12; dist = 8.0; tx = xc - 1.0; ty = 0.45; tz = LANE + 0.2; }
+      else if (kind === 'battery') { az = 62; el_ = 14; dist = 10.5 * CAR.camK; tx = xc + CAR.packX; ty = 0.5; }
+      else if (kind === 'regen') { az = 66; el_ = 12; dist = 8.0 * CAR.camK; tx = xc + CAR.wr + 0.38; ty = 0.45; tz = LANE + 0.2; }
       else { var spp = s.gap + 2 * CARL + s.lead * 3, thh = Math.tan(THREE.MathUtils.degToRad(CAMP[2] / 2)) * camera.aspect; az = 30; el_ = 26; dist = Math.max(cs.D, (spp * Math.sin(THREE.MathUtils.degToRad(az)) + 5) / (2 * thh * (panelFrac() > 0 ? 0.9 - panelFrac() : 0.7))); tx = s.xe - CARL + spp / 2 - (panel() ? 3 : 4); ty = 0.3; }
       var a = THREE.MathUtils.degToRad(az), e = THREE.MathUtils.degToRad(el_);
       out.set(tx - dist * Math.cos(e) * Math.cos(a), ty + dist * Math.sin(e), tz + dist * Math.cos(e) * Math.sin(a)); look.set(tx, ty, tz);
@@ -428,7 +485,7 @@
     }
     function project(x, y, z) { pv.set(x, y, z).project(camera); return { x: (pv.x * 0.5 + 0.5) * W, y: (-pv.y * 0.5 + 0.5) * Hh, ok: pv.z < 1 && pv.z > -1 }; }
 
-    function wheelSpin(c, v, dt) { var a = v / 0.334 * dt; c.wheels.forEach(function (w) { w.spin.rotation.z -= a; }); }
+    function wheelSpin(c, v, dt) { var a = v / (c.R || 0.334) * dt; c.wheels.forEach(function (w) { w.spin.rotation.z -= a; }); }
     var xr = 0, brake = 0, regenK = 0, rotLast = 0;
     function update(s, dt, st) {
       // st: {xray, gapk, regenk, plk, det, kind, frozen}
@@ -474,7 +531,9 @@
       }
       placeDashes(cs.cx); floorM.position.x = cs.cx; gridTex.offset.x = cs.cx / GS; road.position.x = cs.cx; edges.forEach(function (m) { m.position.x = cs.cx; }); pool.position.x = (xc + xl) / 2;
     }
-    return { renderer: renderer, scene: scene, camera: camera, resize: resize, frame: frame, update: update, project: project, draw: function () { renderer.render(scene, camera); }, dispose: function () { try { renderer.dispose(); } catch (e) { } }, THREE: THREE, ours: ours, lead: lead, cs: cs };
+    var api = { renderer: renderer, scene: scene, camera: camera, resize: resize, frame: frame, update: update, project: project, draw: function () { renderer.render(scene, camera); }, dispose: function () { try { renderer.dispose(); } catch (e) { } }, THREE: THREE, ours: ours, lead: lead, cs: cs, applyModel: applyModel, model: false };
+    if (MODELDATA) applyModel();
+    return api;
   }
 
   var Hw = function () { return plane.clientWidth; }, Hh_ = function () { return plane.clientHeight; };
@@ -505,7 +564,7 @@
     G.frame(s, dt, kDet, S.selected, S.reduced); G.update(s, dt, st); G.draw();
     // anchors -> hotspots, tags, annotations
     var xc = s.xe - HALF, xl = s.xe + s.gap + HALF, Z = LANE, P = function (x, y, z) { return G.project(x, y, z); };
-    var anc = { gap: P(s.xe + s.gap / 2, 0.35, Z - 0.15), battery: P(xc + 0.25, 0.36, Z + 0.9), regen: P(xc - 1.38, 0.4, Z + 0.96), planner: P(xc, 2.15, Z) };
+    var anc = { gap: P(s.xe + s.gap / 2, 0.35, Z - 0.15), battery: P(xc + CAR.packX + 0.35, 0.36, Z + CAR.sideZ), regen: P(xc + CAR.wr, CAR.axleY + 0.07, Z + CAR.wheelZ), planner: P(xc, CAR.roofY + 0.68, Z) };
     HOT.forEach(function (item) { var p = anc[item.id], b = hotBtn[item.id]; b.style.left = p.x.toFixed(1) + 'px'; b.style.top = p.y.toFixed(1) + 'px'; });
     var dstar = PR.d0 + PR.th * s.v, floor = PR.dmina + PR.dminb * s.v, selD = S.phase !== 'overview' ? S.selected : null;
     // tags: a = anchor ('c' centred above the point, 'b' centred below, 'r' right-aligned left of the point)
@@ -522,9 +581,9 @@
     gk *= own('gap'); rk *= own('regen'); pk *= own('planner'); xk *= own('battery');
     if (phone() && S.phase === 'overview') { gk = rk = pk = xk = 0; }   // on a phone the hotspot name stands alone; the overlay tags appear in the detail view
     put('gap', P(s.xe + s.gap * 0.5, 0.06, Z + 0.55), gk, 'gap <b>' + fx(s.gap, 1) + ' m</b> (measured)', 'b', 0, 24);
-    put('dstar', P(s.xe + dstar * 0.2, 0.06, Z - 0.15), gk, 'd* = ' + fx(PR.d0, 0) + ' + ' + fx(PR.th, 1) + ' \u00d7 ' + fx(s.v, 1) + ' = <b>' + fx(dstar, 1) + ' m</b> (desired)', 'c', 0, -8);
+    put('dstar', P(s.xe + dstar * 0.2, 0.06, Z - 0.15), gk, 'd* = ' + fx(PR.d0, 0) + ' + ' + fx(PR.th, 1) + ' \u00d7 ' + fx(s.v, 1) + ' = <b>' + fx(dstar, 1) + ' m</b> (desired)', 'c', 0, -22);
     put('floor', P(s.xe + floor * 0.55, 0.06, Z - 0.85), gk * (selD === 'gap' ? 1 : 0), 'floor = ' + fx(PR.dmina, 0) + ' + ' + fx(PR.dminb, 1) + ' \u00d7 ' + fx(s.v, 1) + ' = <b>' + fx(floor, 1) + ' m</b>', 'c', 0, -8);
-    var back = s.pb < 0, lp = P(xc - 2.2, 0.9, Z - 0.9); lp.y -= 46;
+    var back = s.pb < 0, lp = P(xc - HALF + 0.05, CAR.roofY * 0.61, Z - 0.9); lp.y -= 46;
     put('batt', lp, xk * (selD === 'battery' || S.hovered === 'battery' ? 1 : 0), (back ? 'back to the battery ' : 'from the battery ') + '<b>' + fx(Math.abs(s.pb), 1) + ' kW</b>', 'r', -14, 0);
     var capw = clamp(s.bk / PR.cap, 0, 1) * 100, rgOn = rk * (selD === 'regen' || S.hovered === 'regen' ? 1 : 0);
     put('regen', lp, rgOn, 'regen to the battery <b>' + fx(s.rg, 1) + ' kW</b><span class="hm-cap"><i style="width:' + capw.toFixed(1) + '%"></i></span><small>braking at the wheels ' + fx(s.bk, 1) + ' kW of the ' + fx(PR.cap, 0) + ' kW cap (assumed)</small>', 'r', -14, 0);
@@ -532,6 +591,9 @@
     pl.forEach(function (tau, i) { put('pl' + (i === 0 ? 1 : 3), P(xf + s.lead * tau, 0.2, Z), pk * 0.95, '+' + tau + ' s', 'c', 0, -4); }); put('pl2', P(xf, 0, Z), 0, undefined, 'c');
     put('plc', P(xf + s.lead * 2.0, 0.3, Z + 0.5), pk, 'assumed: the lead keeps ' + fx(s.lead, 1) + ' m/s' + (selD === 'planner' ? '<br><i>rings: where it really was</i>' : ''), 'b', 0, 8);
     var ord = ['gap', 'dstar', 'floor', 'batt', 'regen', 'pl1', 'pl3', 'plc'], done = [];
+    var pr_ = plane.getBoundingClientRect(), obst = function (n_) { var r_ = n_.getBoundingClientRect(); if (r_.width) done.push({ x0: r_.left - pr_.left, y0: r_.top - pr_.top, w: r_.width, h: r_.height }); };
+    if (backBtn && S.phase !== 'overview') obst(backBtn);   // the Back button and the hovered hotspot (ring and name chip) are obstacles for the tags
+    else if (S.hovered && hotBtn[S.hovered]) Array.prototype.forEach.call(hotBtn[S.hovered].children, obst);
     ord.forEach(function (k) {
       var t = tags[k], r = t.r; if (!r || r.on < 0.25 || !r.w) return;
       for (var pass = 0; pass < 4; pass++) { var hit = null; for (var q = 0; q < done.length; q++) { var o = done[q]; if (r.x0 < o.x0 + o.w + 4 && r.x0 + r.w + 4 > o.x0 && r.y0 < o.y0 + o.h + 4 && r.y0 + r.h + 4 > o.y0) { hit = o; break; } } if (!hit) break; var d = hit.y0 + hit.h + 4 - r.y0; r.y0 += d; t.py += d; }
@@ -540,9 +602,9 @@
     if (S.phase === 'detail' || S.phase === 'entering') {
       var an = ({
         gap: [P(s.xe + dstar, 0.06, Z - 0.15), P(s.xe + floor, 0.06, Z - 0.85), P(s.xe + s.gap, 0.06, Z + 0.55)],
-        battery: [P(xc - 0.3, 0.32, Z), P(xc - 0.6, 0.34, Z + 0.42), P(xc, 1.75, Z)],
-        regen: [P(xc - 1.38, 0.33, Z + 0.95), P(xc - 1.38, 0.42, Z + 0.1), P(xc, 1.8, Z)],
-        planner: [P(xc, 2.0, Z), P(xf + s.lead * 3, 0.2, Z), P(xl, 1.7, Z)]
+        battery: [P(xc + CAR.packX - 0.2, CAR.packY + 0.02, Z), P(xc + CAR.packX - 0.5, CAR.packY + 0.04, Z + 0.42), P(xc, CAR.roofY + 0.28, Z)],
+        regen: [P(xc + CAR.wr, CAR.axleY, Z + CAR.wheelZ - 0.01), P(xc + CAR.wr, CAR.motorY, Z + 0.1), P(xc, CAR.roofY + 0.33, Z)],
+        planner: [P(xc, CAR.roofY + 0.53, Z), P(xf + s.lead * 3, 0.2, Z), P(xl, CAR.roofY + 0.23, Z)]
       })[S.selected], mx = panel() ? 1 - panelFrac() : 1;
       var x1 = Hw() * mx - 24, y1 = Hh_() - 30, placed = [], rects = [];
       Object.keys(tags).forEach(function (k) { var r = tags[k].r; if (r && r.on > 0.25 && r.w) rects.push(r); });
@@ -579,6 +641,49 @@
     S.reduced = r; if (r) { S.playing = false; if (S.phase === 'overview') S.t = T_STILL; spd = 0; fadeEl.style.opacity = 0; loopState = 0; } render(); schedule();
   }
 
+
+  /* ------------------------------------------------------------ car model: car.bin = 16-byte header + (raw deflate of [json meta + quantised geometry]) XOR-ed with a fixed key. Decoded here into plain typed arrays.
+     The file is a simplified, recoloured derivative (interior, logos and animations removed) and is not offered as a download; see About. */
+  var CAR_KEY = [0x5a, 0xc3, 0x19, 0xe7, 0x82, 0x4d, 0xb0, 0x36, 0xf1, 0x6e, 0x27, 0x9c, 0xd5, 0x08, 0xab, 0x73];
+  function decodeCarBin(buf) {
+    var u = new Uint8Array(buf);
+    if (u.length < 32 || u[0] !== 69 || u[1] !== 86 || u[2] !== 67 || u[3] !== 66 || u[4] !== 1) return Promise.reject(new Error('car.bin header'));
+    if (typeof DecompressionStream === 'undefined' || typeof Blob === 'undefined') return Promise.reject(new Error('no DecompressionStream'));
+    var dv = new DataView(buf), clen = dv.getUint32(8, true), pad = u[5], b = u.slice(16, 16 + clen), i;
+    for (i = 0; i < b.length; i++) b[i] = b[i] ^ CAR_KEY[i & 15] ^ ((i * 7) & 255);
+    return new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer().then(function (raw) {
+      var rv = new DataView(raw), jl = rv.getUint32(0, true), meta = JSON.parse(new TextDecoder().decode(new Uint8Array(raw, 4, jl))), base = 4 + jl + pad, parts = [];
+      meta.parts.forEach(function (m) {
+        var q = new Uint16Array(raw, base + m.po, m.n * 3), nq = new Int16Array(raw, base + m.no, m.n * 2), ix = m.w ? new Uint32Array(raw, base + m.io, m.t * 3) : new Uint16Array(raw, base + m.io, m.t * 3);
+        var pos = new Float32Array(m.n * 3), nor = new Float32Array(m.n * 3), k, a, c, d, e2, z, l;
+        for (k = 0; k < m.n; k++) {
+          pos[3 * k] = m.lo[0] + q[3 * k] / 65535 * m.rg[0]; pos[3 * k + 1] = m.lo[1] + q[3 * k + 1] / 65535 * m.rg[1]; pos[3 * k + 2] = m.lo[2] + q[3 * k + 2] / 65535 * m.rg[2];
+          a = nq[2 * k] / 32767; c = nq[2 * k + 1] / 32767; z = 1 - Math.abs(a) - Math.abs(c);
+          if (z < 0) { d = (1 - Math.abs(c)) * (a >= 0 ? 1 : -1); e2 = (1 - Math.abs(a)) * (c >= 0 ? 1 : -1); a = d; c = e2; }
+          l = Math.sqrt(a * a + c * c + z * z) || 1; nor[3 * k] = a / l; nor[3 * k + 1] = c / l; nor[3 * k + 2] = z / l;
+        }
+        parts.push({ g: m.g, m: m.m, pos: pos, nor: nor, idx: m.w ? ix : new Uint16Array(ix) });
+      });
+      var wh = meta.wheels, xs = wh.map(function (w) { return w[0]; }), wf = Math.max.apply(null, xs), wr = Math.min.apply(null, xs), len = meta.size[0];
+      CARS.model = { len: len, wf: wf, wr: wr, R: meta.R || 0.4065, sideZ: 0.99, wheelZ: 1.0, roofY: meta.size[1], packX: (wf + wr) / 2, packY: 0.31, packL: 2.25, packW: 1.45, motorX: wr, motorY: 0.44, motorW: 0.62, axleY: wh[0][1], axleW: 1.66, camK: 1.05,
+        plateY: meta.plate ? meta.plate[1] : 0.615, plateW: 0.52, plateH: 0.125,
+        cab: [[(wf + wr) / 2 + 0.95, 0.32, 0.45], [(wf + wr) / 2 - 0.3, 0.34, 0.45], [wr + 0.4, 0.38, 0.44], [wr + 0.02, 0.45, 0.2]] };
+      return { meta: meta, parts: parts };
+    });
+  }
+  function weakGpu(renderer) {   // software rasterisers and very small devices keep the stylised cars
+    if (window.__HM_FORCE_CAR) return false;
+    try { var gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info'), name = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : ''; if (/swiftshader|llvmpipe|software|softpipe/i.test(name)) return true; } catch (e) { }
+    return (navigator.deviceMemory && navigator.deviceMemory < 2) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 2);
+  }
+  function loadCarModel() {
+    if (!G || MODELDATA || MODELFAIL || !DATA.car || !window.fetch) return;
+    if (weakGpu(G.renderer)) { MODELFAIL = true; console.info('home scene: weak graphics, keeping the stylised cars'); return; }
+    fetch(DATA.car).then(function (r) { if (!r.ok) throw new Error('car.bin ' + r.status); return r.arrayBuffer(); }).then(decodeCarBin).then(function (md) {
+      MODELDATA = md; if (G && !failed) { G.applyModel(); G.cs.fresh = 1; requestDraw(); if (S.reduced) requestDrawNow(); }
+    }).catch(function (err) { MODELFAIL = true; console.warn('home scene: car model not available (' + String(err && err.message || err) + '), keeping the stylised cars'); });
+  }
+
   /* ------------------------------------------------------------ boot */
   if (window.ResizeObserver) { var ro = new ResizeObserver(updatePlane); ro.observe(stage); }
   window.addEventListener('resize', updatePlane);
@@ -592,7 +697,7 @@
       THREE_MOD = THREE;
       try { G = sceneBuild(THREE); } catch (err) { toStill(String(err && err.message || err)); return; }
       glCanvas.addEventListener('webglcontextlost', function (ev) { ev.preventDefault(); if (G) G.dispose(); G = null; toStill('context lost'); });
-      S.mode = 'gl'; G.resize(); render(); draw(0.016); requestAnimationFrame(function () { draw(0.016); root.classList.add('gl-on'); schedule(); });
+      S.mode = 'gl'; G.resize(); render(); draw(0.016); requestAnimationFrame(function () { draw(0.016); root.classList.add('gl-on'); schedule(); setTimeout(loadCarModel, 60); });   // the car model is fetched after the first painted frame; the stylised cars show until it is ready
     }, function (err) { toStill(String(err && err.message || err)); });
   }
   var THREE_MOD = null;

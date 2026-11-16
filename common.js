@@ -1,7 +1,7 @@
 'use strict';
 /* Shared code for every page: helpers, the engine (worker.js, Pyodide) on /run/ and /train/ only, CSV export, lightbox, self-test hook. All simulation and training run on the visitor's device. */
 const $ = id => document.getElementById(id);
-const SITE_V = '20261116u';   // same as VER in build_site.py (the build checks it)
+const SITE_V = '20261116v';   // same as VER in build_site.py (the build checks it)
 const ARMS = {
   acc: { name: 'Tuned ACC', c: 'var(--c-acc)', w: 1.5, dash: '6 4' }, smc: { name: 'SMC', c: 'var(--c-smc)', w: 1.5, dash: '1.5 3.5' }, sac42: { name: 'Plain SAC (seed 42)', c: 'var(--c-sac42)', w: 1.5, dash: '9 3 1.5 3' },
   safesac42: { name: 'Safe SAC (seed 42)', c: 'var(--c-safesac42)', w: 1, dash: '12 4' }, mpc_const: { name: 'MPC const-speed (our design car)', c: 'var(--c-mpc_const)', w: 2.25 },
