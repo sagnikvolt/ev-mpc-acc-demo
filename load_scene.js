@@ -17,7 +17,7 @@
 
   /* ------------------------------------------------------------ real progress model (stages posted by worker.js) */
   var ST = ['runtime', 'packages', 'files', 'import', 'init', 'solve'];
-  var NAME = { runtime: 'Python runtime (Pyodide)', packages: 'numpy, scipy, cvxpy, clarabel', files: 'The paper\'s Python files and trained actors', import: 'Loading the solver stack', init: 'Setting up the energy model', solve: 'Warm-up solve of the MPC' };
+  var NAME = document.body.dataset.page === 'train' ? { runtime: 'Python runtime (Pyodide)', packages: 'numpy, scipy, cvxpy, clarabel', files: 'The engine\'s Python files and data', import: 'Loading the engine code', init: 'Setting up the battery model', solve: 'Warm-up run of the engine' } : { runtime: 'Python runtime (Pyodide)', packages: 'numpy, scipy, cvxpy, clarabel', files: 'The paper\'s Python files and trained actors', import: 'Loading the solver stack', init: 'Setting up the energy model', solve: 'Warm-up solve of the MPC' };
   var EXP = { runtime: 12262932, packages: 19387909, files: 1947938 };   // bytes, measured (data/engine_size.json "stages" replaces these when it loads)
   var st = {}, bytes = { runtime: 0, packages: 0, files: 0 }, ready = false, failed = false, readySecs = 0;
   ST.forEach(function (k) { st[k] = { s: 0, t0: 0, t1: 0 }; });
@@ -46,6 +46,22 @@
     if (ok) lsSet(KEYSECS(), JSON.stringify(o));
   }
   EVLD.sink = onEvent; EVLD.q.splice(0).forEach(onEvent);
+  /* one source of truth: the rail chip %, the rail bar and the overlay bar all use progress(); common.js setBar reads EVLD.prog */
+  EVLD.prog = function () { return progress(); };
+  function detText(k) {
+    var o = st[k], isB = !!EXP[k], fr = stageFrac(k), tail = isB && o.s === 1 && fr >= 0.97, det;
+    if (isB && !tail && o.s === 1) det = saved() ? 'from this device' : 'downloading ' + (bytes[k] / 1048576).toFixed(1) + ' of ' + (EXP[k] / 1048576).toFixed(1) + ' MB';
+    else if (isB && o.s === 1) det = saved() ? 'from this device' : 'downloaded, starting';
+    else if (isB) det = saved() ? 'from this device' : 'waiting'; else det = 'computing on this device';
+    return det;
+  }
+  var railT = setInterval(function () {
+    if (ready || failed || readyInfo) { clearInterval(railT); return; }
+    var p = progress(), k = curStage(), lb = document.getElementById('lbar'), lm = document.getElementById('lmsg');
+    if (lb) lb.style.transform = 'scaleX(' + p.toFixed(3) + ')';
+    if (lm) lm.textContent = 'Step ' + (ST.indexOf(k) + 1) + ' of ' + ST.length + ' · ' + detText(k);
+    if (window.__railChip) window.__railChip(p);
+  }, 250);
 
   /* ------------------------------------------------------------ prefetch (low priority) and capability probes */
   var weakGL = false, softGL = false, glOK = true, carP = null, mode = 'none';
