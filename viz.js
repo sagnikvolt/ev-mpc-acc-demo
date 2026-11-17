@@ -23,17 +23,23 @@
     const ts = narrow ? 40 : 20; for (let v = 0; v <= T; v += ts) g += `<text x="${X(v)}" y="${Ht - 6}" text-anchor="${v === 0 ? 'start' : 'middle'}">${v} s</text>`;
     g += `<path class="ln ln-lead" d="${path(H.t, H.lead, X, Y1)}"/><path class="ln ln-rec" d="${path(H.t, H.rec_v, X, Y1)}"/><path class="ln ln-mpc" d="${path(H.t, H.mpc_v, X, Y1)}"/>`;
     g += `<path class="ln ln-rec" d="${path(H.t, H.rec_gap, X, Y2)}"/><path class="ln ln-mpc" d="${path(H.t, H.mpc_gap, X, Y2)}"/>`;
-    g += `<g id="hx" style="display:none"><line class="grid-h" id="hxl" y1="${y1}" y2="${y2 + hg}" style="stroke:var(--text3)"/></g>`;
-    el.innerHTML = `<svg viewBox="0 0 ${W} ${Ht}" width="${W}" height="${Ht}" role="img" aria-label="Speed and gap over time for the median test window: lead car, recorded follower and our MPC car">${g}<rect id="hhit" x="${m.l}" y="0" width="${W - m.l - m.r}" height="${Ht}" fill="transparent" style="touch-action:pan-y"/></svg>`;
+    g += `<g id="hx" style="display:none"><line class="grid-h" id="hxl" y1="${y1}" y2="${y2 + hg}" style="stroke:var(--text3)"/></g><g id="hxh" style="display:none;pointer-events:none"><line y1="${y1}" y2="${y2 + hg}" id="hxhl" style="stroke:var(--text3);stroke-width:1;stroke-dasharray:2 3;opacity:.55"/><text id="hxht" y="${y1 - 8}" style="fill:var(--text3)"></text></g>`;
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${Ht}" width="${W}" height="${Ht}" role="img" tabindex="0" aria-label="Speed and gap over time for the median test window: lead car, recorded follower and our MPC car. Press and drag, or use the arrow keys, to move the scene in time.">${g}<rect id="hhit" x="${m.l}" y="0" width="${W - m.l - m.r}" height="${Ht}" fill="transparent" style="touch-action:pan-y;cursor:col-resize"/></svg>`;
     const sc = $('hero-scrub'), gx = $('hx'), gl = $('hxl'), hit = $('hhit'), f1 = v => v === null ? '-' : v.toFixed(1), iOf = t => Math.max(0, Math.min(H.t.length - 1, Math.round(t / 0.5)));
     const show = t => { if (t === null) { gx.style.display = 'none'; if (sc) sc.textContent = sc.dataset.idle; return; } const i = iOf(t);
       gx.style.display = ''; gl.setAttribute('x1', X(H.t[i])); gl.setAttribute('x2', X(H.t[i]));
       if (sc) sc.innerHTML = `t ${H.t[i].toFixed(1)} s &middot; lead ${f1(H.lead[i])} &middot; recorded ${f1(H.rec_v[i])} &middot; ours ${f1(H.mpc_v[i])} m/s &middot; gap ${f1(H.rec_gap[i])} / ${f1(H.mpc_gap[i])} m`; };
     heroShow = show; if (heroT !== null) show(heroT);
-    const move = e => { const r = hit.getBoundingClientRect(), px = (e.clientX - r.left) / r.width * (W - m.l - m.r), t = H.t[iOf(px / (W - m.l - m.r) * T)];
-      heroT = t; show(t); window.dispatchEvent(new CustomEvent('ev:scrub', { detail: { t, src: 'chart', scope: 'hero' } })); };
-    hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move);
-    hit.addEventListener('pointerleave', () => { heroT = null; show(null); window.dispatchEvent(new CustomEvent('ev:scrub', { detail: { t: null, src: 'chart', scope: 'hero' } })); });
+    /* scrubber, not hover: only pressing on the chart (mouse or touch) moves the scene; hovering shows a faint line and its time and changes nothing */
+    const ev = (t, phase) => window.dispatchEvent(new CustomEvent('ev:scrub', { detail: { t, src: 'chart', scope: 'hero', phase } })), hxh = $('hxh'), hxhl = $('hxhl'), hxht = $('hxht'), PW = W - m.l - m.r;
+    const tAt = e => { const r = hit.getBoundingClientRect(); return H.t[iOf((e.clientX - r.left) / r.width * T)]; }; let drag = false;
+    const hov = t => { if (t === null) { hxh.style.display = 'none'; return; } hxh.style.display = ''; const x = X(t); hxhl.setAttribute('x1', x); hxhl.setAttribute('x2', x); hxht.textContent = t.toFixed(1) + ' s'; hxht.setAttribute('x', x); hxht.setAttribute('text-anchor', x < m.l + 30 ? 'start' : x > W - m.r - 30 ? 'end' : 'middle'); };
+    hit.addEventListener('pointerdown', e => { if (e.button > 0) return; try { hit.setPointerCapture(e.pointerId); } catch (x) { } drag = true; hov(null); const t = tAt(e); heroT = t; show(t); ev(t, 'down'); });
+    hit.addEventListener('pointermove', e => { const t = tAt(e); if (drag) { heroT = t; show(t); ev(t, 'drag'); } else hov(t); });
+    const end = () => { if (!drag) return; drag = false; ev(heroT, 'up'); };
+    hit.addEventListener('pointerup', end); hit.addEventListener('pointercancel', end); hit.addEventListener('lostpointercapture', end);
+    hit.addEventListener('pointerleave', () => { if (!drag) hov(null); });
+    const sv = hit.ownerSVGElement; sv.addEventListener('keydown', e => { if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return; e.preventDefault(); const t = Math.max(0, Math.min(T, (heroT === null ? 0 : heroT) + (e.key === 'ArrowRight' ? 0.5 : -0.5))), tt = H.t[iOf(t)]; heroT = tt; show(tt); ev(tt, 'down'); ev(tt, 'up'); });
   }
   let heroShow = null, heroT = null;
   window.addEventListener('ev:scrub', e => { const d = e.detail || {}; if (d.scope !== 'hero' || d.src === 'chart') return; heroT = d.t; if (heroShow) heroShow(d.t); });

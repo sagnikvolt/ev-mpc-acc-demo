@@ -1071,3 +1071,37 @@ html.rm .hs-ring:after{animation:none}
 .mv-stage text{font:400 11px var(--mono);fill:var(--text3)}.mv-stage .mv-lab{fill:var(--text2)}.mv-stage .acc{fill:var(--accent)}.mv-stage .mv-big{font:500 20px var(--mono);fill:var(--text)}
 .mv-cap{margin:8px 0 0;max-width:62rem}
 .stage.pv-model>.stage-title .intro,.stage.pv-model .procbar-n{display:none}
+
+/* ===== Round x: loading overlay on Run it and Train it (load_scene.js). Sits over the right-hand pane only; pointer-events: none except its two controls, so nothing is blocked ===== */
+.ldv{position:relative;grid-column:2;grid-row:1;z-index:6;min-height:0;min-width:0;overflow:hidden;background:var(--bg);pointer-events:none;contain:layout paint}
+.ldv-gl,.ldv-stills,.ldv-still1{position:absolute;inset:0;width:100%;height:100%;display:block}
+.ldv-still1{object-fit:cover}
+.ldv-top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 24px 28px;background:linear-gradient(to bottom,var(--bg) 25%,transparent)}
+.ldv-eb{font:500 11px/16px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3)}
+.ldv-ctl{display:flex;align-items:center;gap:16px;pointer-events:auto}
+.ldv-off{margin:0;font-size:13px;color:var(--text2)}
+.ldv-skip kbd{font:500 10px/14px var(--mono);margin-left:8px;padding:0 5px;border:1px solid var(--line2);border-radius:4px;color:var(--text3)}
+.ldv-chip{position:absolute;left:28px;bottom:112px;width:min(340px,40%);padding:14px 18px 16px;border-radius:14px;border:1px solid var(--line2);background:color-mix(in srgb,var(--card) 80%,transparent);-webkit-backdrop-filter:blur(14px) saturate(1.15);backdrop-filter:blur(14px) saturate(1.15);opacity:0;transform:translateY(8px);transition:opacity 500ms var(--ease),transform 500ms var(--ease)}
+.ldv-chip.on{opacity:1;transform:none}
+.ldv-chip .k{font:500 11px/16px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+.ldv-chip .t{font:400 18px/26px var(--sans);color:var(--text);margin-top:4px}
+.ldv-dots{position:absolute;right:28px;bottom:104px;display:flex;gap:6px}
+.ldv-dots i{width:6px;height:6px;border-radius:50%;background:var(--line2);transition:background-color 300ms var(--ease)}
+.ldv-dots i.on{background:var(--accent)}
+.ldv-bar{position:absolute;left:0;right:0;bottom:0;padding:44px 28px 22px;background:linear-gradient(to bottom,transparent,var(--bg) 58%)}
+.ldv-row{display:flex;align-items:baseline;gap:16px;margin-bottom:10px;font-size:13px;line-height:18px}
+.ldv-step{color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ldv-det{color:var(--text3);font-size:12px;white-space:nowrap;margin-left:auto}
+.ldv-pct{color:var(--text2);font-size:12px;white-space:nowrap;min-width:9.5ch;text-align:right}
+.ldv-track{position:relative;height:4px;border-radius:2px;background:var(--line2);overflow:hidden}
+.ldv-fill{position:absolute;inset:0;background:var(--accent);transform:scaleX(0);transform-origin:left;transition:transform 260ms var(--ease)}
+.ldv-shim{position:absolute;top:0;bottom:0;left:0;width:0;opacity:0;overflow:hidden}
+.ldv-shim::after{content:"";position:absolute;top:0;bottom:0;left:0;width:60%;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--accent) 55%,transparent),transparent);animation:ldv-shim 1.5s linear infinite;will-change:transform}
+@keyframes ldv-shim{from{transform:translateX(-100%)}to{transform:translateX(170%)}}
+.ldv-lite .ldv-chip{-webkit-backdrop-filter:none;backdrop-filter:none;background:color-mix(in srgb,var(--card) 92%,transparent)}
+.ldv-lite .ldv-shim::after{animation:none;width:100%;opacity:.45}
+.ldv-ticks b{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--bg);opacity:.9}
+.rm .ldv-shim::after{animation:none;width:100%;opacity:.45}
+@media(max-width:1180px){.ldv-chip{width:min(300px,44%)}.ldv-chip .t{font-size:16px;line-height:23px}.ldv-det{display:none}}
+body.app:not(.gated) .app-ws>.rail{grid-column:1;grid-row:1}
+body.app:not(.gated) .app-ws>.stage{grid-column:2;grid-row:1}

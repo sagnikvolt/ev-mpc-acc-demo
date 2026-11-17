@@ -33,12 +33,19 @@ function lineChart(el, t, series, ylabel, opt) {
     return `<path class="ln" d="${d}" style="stroke:${s.c};stroke-width:${s.w || 1.5}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ''}/>`;
   });
   const lg = all0.filter(s => !s.hide).map(s => s.id ? `<button type="button" class="lg lgb${seriesOn(s) ? '' : ' off'}" data-id="${s.id}" aria-pressed="${seriesOn(s)}" title="${seriesOn(s) ? 'Click to hide' : 'Click to show'} ${s.n}">${swatch(s)}${s.n}</button>` : `<span class="lg">${swatch(s)}${s.n}</span>`).join('');
-  el.innerHTML = `${opt.labelTop ? `<div class="meta top">${ylabel}</div>` : ''}${opt.legend === false ? '' : `<div class="legend">${lg}</div>`}<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${ylabel}" data-ml="${m.l}" data-mr="${m.r}" data-w="${W}" data-t="${T}">${g}${paths.join('')}<line class="scrubl" y1="${m.t}" y2="${H - m.b}" x1="0" x2="0" style="display:none"/><rect class="hit" x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H}" fill="transparent" style="touch-action:pan-y"/></svg>${opt.labelTop ? '' : `<div class="meta" style="margin-top:4px">${ylabel}</div>`}`;
+  el.innerHTML = `${opt.labelTop ? `<div class="meta top">${ylabel}</div>` : ''}${opt.legend === false ? '' : `<div class="legend">${lg}</div>`}<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${ylabel}" data-ml="${m.l}" data-mr="${m.r}" data-w="${W}" data-t="${T}">${g}${paths.join('')}<line class="scrubl" y1="${m.t}" y2="${H - m.b}" x1="0" x2="0" style="display:none"/><g class="hovg" style="display:none;pointer-events:none"><line class="hovl" y1="${m.t}" y2="${H - m.b}" x1="0" x2="0" style="stroke:var(--text3);stroke-width:1;stroke-dasharray:2 3;opacity:.55"/><text class="hovt" y="${m.t - 4}" style="fill:var(--text3);font:400 10px var(--mono)"></text></g><rect class="hit" x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H}" fill="transparent" style="touch-action:pan-y;cursor:col-resize"/></svg>${opt.labelTop ? '' : `<div class="meta" style="margin-top:4px">${ylabel}</div>`}`;
   el.querySelectorAll('.lgb').forEach(b => { b.onclick = () => toggleSeries(b.dataset.id); });
   if (opt.noScrub) return;
-  const sv = el.querySelector('svg[data-ml]'), hit = sv.querySelector('.hit'), send = t => window.dispatchEvent(new CustomEvent('ev:scrub', { detail: { t, src: 'chart', scope: 'run' } }));
-  const move = e => { const r = hit.getBoundingClientRect(); send(Math.max(0, Math.min(T, (e.clientX - r.left) / r.width * T))); };
-  hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move); hit.addEventListener('pointerleave', () => send(null));
+  const sv = el.querySelector('svg[data-ml]'), hit = sv.querySelector('.hit'), send = (t, phase) => window.dispatchEvent(new CustomEvent('ev:scrub', { detail: { t, src: 'chart', scope: 'run', phase } }));
+  /* scrubber, not hover: hovering shows a faint line and its time only; pressing and dragging moves the road view (paused), releasing leaves it paused there */
+  const hg = sv.querySelector('.hovg'), hl = sv.querySelector('.hovl'), ht = sv.querySelector('.hovt'), ml_ = +sv.dataset.ml, mr_ = +sv.dataset.mr, W_ = +sv.dataset.w; let drag = false;
+  const tAt = e => { const r = hit.getBoundingClientRect(); return Math.max(0, Math.min(T, (e.clientX - r.left) / r.width * T)); };
+  const hov = t => { if (t === null) { hg.style.display = 'none'; return; } const x = ml_ + t / T * (W_ - ml_ - mr_); hg.style.display = ''; hl.setAttribute('x1', x); hl.setAttribute('x2', x); ht.textContent = t.toFixed(1) + ' s'; ht.setAttribute('x', x); ht.setAttribute('text-anchor', x < ml_ + 24 ? 'start' : x > W_ - mr_ - 24 ? 'end' : 'middle'); };
+  hit.addEventListener('pointerdown', e => { if (e.button > 0) return; try { hit.setPointerCapture(e.pointerId); } catch (x) { } drag = true; hov(null); send(tAt(e), 'down'); });
+  hit.addEventListener('pointermove', e => { if (drag) send(tAt(e), 'drag'); else hov(tAt(e)); });
+  const end = () => { if (!drag) return; drag = false; send(runScrubT, 'up'); };
+  hit.addEventListener('pointerup', end); hit.addEventListener('pointercancel', end); hit.addEventListener('lostpointercapture', end); hit.addEventListener('pointerleave', () => { if (!drag) hov(null); });
+  sv.tabIndex = 0; sv.addEventListener('keydown', e => { if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return; e.preventDefault(); const t = Math.max(0, Math.min(T, (runScrubT === null ? 0 : runScrubT) + (e.key === 'ArrowRight' ? 0.5 : -0.5))); send(t, 'down'); send(t, 'up'); });
   if (runScrubT !== null) setScrub(sv, runScrubT);
 }
 function redrawAllCharts() { Object.values(chartJobs).forEach(j => { if (j[0].isConnected) lineChart(...j); }); }
@@ -53,7 +60,7 @@ function setScrub(sv, t) {
   const ln = sv.querySelector('.scrubl'); if (!ln) return; if (t === null) { ln.style.display = 'none'; return; }
   const ml = +sv.dataset.ml, mr = +sv.dataset.mr, W = +sv.dataset.w, T = +sv.dataset.t, x = ml + Math.min(1, t / T) * (W - ml - mr); ln.setAttribute('x1', x); ln.setAttribute('x2', x); ln.style.display = '';
 }
-window.addEventListener('ev:scrub', e => { const d = e.detail || {}; if (d.scope !== 'run') return; runScrubT = d.t === undefined ? null : d.t; Object.values(chartJobs).forEach(j => { const sv = j[0].querySelector('svg[data-ml]'); if (sv) setScrub(sv, runScrubT); }); });
+window.addEventListener('ev:scrub', e => { const d = e.detail || {}; if (d.scope !== 'run' || d.phase === 'up') return; runScrubT = d.t === undefined ? null : d.t; Object.values(chartJobs).forEach(j => { const sv = j[0].querySelector('svg[data-ml]'); if (sv) setScrub(sv, runScrubT); }); });
 let rzT = 0; window.addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(() => Object.values(chartJobs).forEach(j => { const sv = j[0].querySelector('svg'); if (sv && j[0].offsetParent && Math.abs(j[0].clientWidth - (+sv.getAttribute('width'))) > 8) lineChart(...j); }), 150); });
 
 /* ---------------- run panel ---------------- */

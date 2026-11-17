@@ -198,10 +198,12 @@
     if (!chartHold && (force || Math.abs(s.t - lastAnn) > 1e-6)) { lastAnn = s.t; window.dispatchEvent(new CustomEvent('ev:scrub', { detail: { t: s.t, src: 'scene', scope: 'hero' } })); }   // the window chart card draws its cursor and readout from this one clock
   }
   var chartHold = false, lastAnn = -1;
-  window.addEventListener('ev:scrub', function (e) {   // hovering or dragging on the chart scrubs the scene; leaving it lets the clock run on
+  window.addEventListener('ev:scrub', function (e) {   // scrubber, not hover: only a press / drag (or the arrow keys) on the chart sets the time and pauses; release leaves the scene paused at that time until Play is pressed
     var d = e.detail || {}; if (d.scope !== 'hero' || d.src !== 'chart') return;
-    if (d.t === null || d.t === undefined) { chartHold = false; return; }
-    chartHold = true; S.t = clamp(d.t, 0, TEND); loopState = 0; fadeEl.style.opacity = 0; if (G) G.cs.fresh = 1; requestDraw(); if (S.reduced) paintReadout(snap(S.t), true);
+    if (d.phase === 'up') { chartHold = false; return; }
+    if (d.phase !== 'down' && d.phase !== 'drag') return;   // hover (or anything else) never moves the scene
+    if (d.t === null || d.t === undefined) return;
+    chartHold = true; if (S.playing) set({ playing: false }); S.t = clamp(d.t, 0, TEND); loopState = 0; fadeEl.style.opacity = 0; if (G) G.cs.fresh = 1; requestDraw(); paintReadout(snap(S.t), true);
   });
 
   /* ------------------------------------------------------------ three.js scene */

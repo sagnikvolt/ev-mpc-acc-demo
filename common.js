@@ -1,7 +1,7 @@
 'use strict';
 /* Shared code for every page: helpers, the engine (worker.js, Pyodide) on /run/ and /train/ only, CSV export, lightbox, self-test hook. All simulation and training run on the visitor's device. */
 const $ = id => document.getElementById(id);
-const SITE_V = '20261118w';   // same as VER in build_site.py (the build checks it)
+const SITE_V = '20261118x';   // same as VER in build_site.py (the build checks it)
 const ARMS = {
   acc: { name: 'Tuned ACC', c: 'var(--c-acc)', w: 1.5, dash: '6 4' }, smc: { name: 'SMC', c: 'var(--c-smc)', w: 1.5, dash: '1.5 3.5' }, sac42: { name: 'Plain SAC (seed 42)', c: 'var(--c-sac42)', w: 1.5, dash: '9 3 1.5 3' },
   safesac42: { name: 'Safe SAC (seed 42)', c: 'var(--c-safesac42)', w: 1, dash: '12 4' }, mpc_const: { name: 'MPC const-speed (our design car)', c: 'var(--c-mpc_const)', w: 2.25 },
@@ -39,6 +39,7 @@ const sgn = x => (x > 0 ? '+' : '') + x.toFixed(2).replace('-', '\u2212') + '%';
 
 /* ---------------- worker plumbing ---------------- */
 const worker = ENGINE && DESKTOP ? new Worker('/worker.js?v=' + SITE_V, { type: 'module' }) : null;   // phones and tablets never create the worker, so Pyodide and the data files are never requested
+const EVLD = { q: [], sink: null, push(m) { if (this.sink) this.sink(m); else this.q.push(m); } };   // Round x: loading-stage events for the loading overlay (load_scene.js); queued until the overlay script has attached
 let nextId = 1; const pending = new Map(); let readyRes, readyRej; const ready = new Promise((a, b) => { readyRes = a; readyRej = b; });
 const engineSaved = () => { try { return localStorage.getItem('ev_keep_engine') === '1' && 'caches' in window; } catch (e) { return false; } };   // the engine is kept on this device (Keep the engine): no download wording then
 const LOAD_TXT = () => engineSaved() ? 'Loading the engine from this device…' : 'Loading the engine… (first visit downloads ~30 MB)';
@@ -48,12 +49,13 @@ if (worker) worker.onmessage = e => {
   const m = e.data;
   if (m.type === 'progress') { setBar(m.frac, m.msg); if (Proc.running) Proc.log(m.msg); }
   else if (m.type === 'log') Proc.log(m.msg);
-  else if (m.type === 'ready') { readyInfo = m; WINDOWS = m.windows; PYV = m.pyodide; setBar(1, 'Engine ready · ' + m.secs.toFixed(1) + ' s on your device'); $('lbar').parentNode.style.display = 'none'; readyRes(m); READY.forEach(f => f()); }
+  else if (m.type === 'ld') EVLD.push(m);
+  else if (m.type === 'ready') { readyInfo = m; WINDOWS = m.windows; PYV = m.pyodide; setBar(1, 'Engine ready · ' + m.secs.toFixed(1) + ' s on your device'); $('lbar').parentNode.style.display = 'none'; readyRes(m); EVLD.push({ type: 'ready', secs: m.secs, at: m.at }); READY.forEach(f => f()); }
   else if (m.type === 'urls') { const p = pending.get(m.id); if (p) { pending.delete(m.id); p.res(m); } }
   else if (m.type === 'result') { const p = pending.get(m.id); if (p) { pending.delete(m.id); p.res(m); } }
-  else if (m.type === 'error') { const p = pending.get(m.id); if (p) { pending.delete(m.id); p.rej(new Error(m.msg)); } else { $('lmsg').innerHTML = '<span class="err">Could not start the Python runtime: ' + m.msg + '</span>'; readyRej(new Error(m.msg)); } }
+  else if (m.type === 'error') { const p = pending.get(m.id); if (p) { pending.delete(m.id); p.rej(new Error(m.msg)); } else { $('lmsg').innerHTML = '<span class="err">Could not start the Python runtime: ' + m.msg + '</span>'; readyRej(new Error(m.msg)); EVLD.push({ type: 'error' }); } }
 };
-if (worker) worker.onerror = e => { $('lmsg').innerHTML = '<span class="err">Worker error: ' + (e.message || e) + '</span>'; };
+if (worker) worker.onerror = e => { EVLD.push({ type: 'error' }); $('lmsg').innerHTML = '<span class="err">Worker error: ' + (e.message || e) + '</span>'; };
 function call(msg) { const id = nextId++; return new Promise((res, rej) => { pending.set(id, { res, rej }); worker.postMessage(Object.assign({ id }, msg)); }); }
 if (ENGINE && DESKTOP) Promise.all([fetch('/data/reference.json?v=' + SITE_V).then(r => r.json()), fetch('/data/ml_reference.json?v=' + SITE_V).then(r => r.json())]).then(([a, b]) => { REF = a; MLREF = b; });
 if (worker) worker.postMessage({ cmd: 'init' });
@@ -95,10 +97,11 @@ const KEEP = (function () {
   async function collect() {   // put every file the page and the worker have fetched into the caches (skips what is already there)
     let urls = [];
     if (ENGINE && DESKTOP && typeof worker !== 'undefined' && worker) { await ready; const r = await call({ cmd: 'urls' }); urls = r.urls || []; }
-    const page = performance.getEntriesByType('resource').map(r => r.name).filter(u => u.startsWith(location.origin) && /[?&]v=/.test(u)); urls = [...new Set(urls.concat(page, [location.href]))]; total = urls.length; files = 0;
-    const cPy = await caches.open('ev-pyodide-v314.0.7'), cSite = await caches.open('ev-site-' + SITE_V);
+    const page = performance.getEntriesByType('resource').map(r => r.name).filter(u => u.startsWith(location.origin) && /[?&]v=/.test(u)), ldx = ENGINE && DESKTOP ? ['https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js', location.origin + '/media/home3d/car.bin?v=' + SITE_V] : [];   // ldx: the loading overlay's 3D car (three.js and car.bin), so a saved engine also starts its film without the network
+    urls = [...new Set(urls.concat(page, ldx, [location.href]))]; total = urls.length; files = 0;
+    const cPy = await caches.open('ev-pyodide-v314.0.7'), cSite = await caches.open('ev-site-' + SITE_V), cThree = await caches.open('ev-three-0.170.0');
     for (const u of urls) {
-      const c = u.startsWith(location.origin) ? cSite : cPy, rq = new Request(u); msg = 'Saving file ' + (files + 1) + ' of ' + total; paint();
+      const c = u.startsWith(location.origin) ? cSite : u.includes('/npm/three@') ? cThree : cPy, rq = new Request(u); msg = 'Saving file ' + (files + 1) + ' of ' + total; paint();
       if (!(await c.match(rq, u === location.href ? { ignoreSearch: true } : undefined))) { const r = await fetch(rq); if (r.status === 200) await c.put(rq, r); }
       files++;
     }

@@ -1,6 +1,12 @@
 {
- "run_bytes": 34182914,
- "train_bytes": 47839259,
- "measured": "2026-11-15, headless Chromium 1366x900 against a local server",
- "how": "sum of the response sizes in Cache Storage (ev-pyodide-* and ev-site-*) after a real load and opt-in on Run it (run_bytes) and after opt-in plus one LightGBM training on Train it (train_bytes)"
+ "run_bytes": 36586795,
+ "train_bytes": 50243140,
+ "measured": "2026-11-18 (round x), headless Chromium 1536x695 against a local server; run_bytes re-measured; train_bytes = the 2026-11-15 measurement plus the same increase (not re-measured on Train it)",
+ "how": "sum of the response sizes in Cache Storage (ev-pyodide-*, ev-site-*, ev-three-*) after a real load and opt-in on Run it (run_bytes) and, for train_bytes, after opt-in plus one LightGBM training (2026-11-15 value) plus the loading overlay's three.js and car.bin (about 2.4 MB, round x)",
+ "stages": {
+  "runtime_bytes": 12262932,
+  "packages_bytes": 19387909,
+  "files_bytes": 1947938,
+  "how": "decoded bytes of the files the worker fetched in each loading stage (Resource Timing in the worker; our own files by exact length), Run it cold load 2026-11-18: runtime = pyodide.mjs/asm.js/asm.wasm/python_stdlib.zip/pyodide-lock.json; packages = numpy, scipy, clarabel, cvxpy-base wheels and their dependencies; files = py/ and data/ files"
+ }
 }

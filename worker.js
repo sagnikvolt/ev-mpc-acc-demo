@@ -7,24 +7,32 @@ const PY_FILES = ['mpc_acc.py', 'baselines.py', 'safe_filter.py', 'sac_env.py', 
 const DATA_FILES = ['windows.npz', 'sac42.npz', 'safesac42.npz', 'rl_meta.json'];
 let py = null, api = null, mlReady = false, bmwLoaded = false;
 const post = (type, o) => postMessage(Object.assign({ type }, o || {}));
-async function getBuf(path) { const r = await fetch(here + path + VQ); if (!r.ok) throw new Error('could not load ' + path + ' (' + r.status + ')'); return new Uint8Array(await r.arrayBuffer()); }
+/* Round x: real loading stages for the overlay (post-only; no computation changes). 'ld' events: {stage, state: 'start'|'done'} at real boundaries, and {bytes: {runtime, packages, files}} = bytes of the files this worker has finished fetching (Resource Timing, decoded size; for our own files the exact length). */
+const LDB = { runtime: 0, packages: 0, files: 0 }, LDSEEN = new Set(); 
+const ldStage = (stage, state) => post('ld', { stage, state, at: performance.now() });
+function ldBytes(cls, n, url) { if (url) { if (LDSEEN.has(url)) return; LDSEEN.add(url); } LDB[cls] += n; post('ld', { bytes: Object.assign({}, LDB), at: performance.now() }); }
+try { new PerformanceObserver(list => { for (const r of list.getEntries()) { if (r.name.startsWith(INDEX_URL)) { const f = r.name.slice(INDEX_URL.length).split('?')[0], n = r.decodedBodySize || r.encodedBodySize || r.transferSize || 0; ldBytes(/^(pyodide\.(mjs|asm\.js|asm\.wasm)|python_stdlib\.zip|pyodide-lock\.json)$/.test(f) ? 'runtime' : 'packages', n, r.name); } } }).observe({ type: 'resource', buffered: true }); } catch (e) { }
+async function getBuf(path) { const r = await fetch(here + path + VQ); if (!r.ok) throw new Error('could not load ' + path + ' (' + r.status + ')'); const b = new Uint8Array(await r.arrayBuffer()); if (ldFiles) ldBytes('files', b.length, here + path); return b; }
+let ldFiles = false;
 async function init() {
   const t0 = performance.now();
   post('progress', { frac: 0.03, msg: 'Loading Python runtime (Pyodide ' + PYODIDE_VERSION + ')...' });
-  py = await loadPyodide({ indexURL: INDEX_URL });
+  ldStage('runtime', 'start'); py = await loadPyodide({ indexURL: INDEX_URL }); ldStage('runtime', 'done');
   post('progress', { frac: 0.25, msg: 'Loading numpy, scipy, cvxpy, clarabel...' });
-  await py.loadPackage(['numpy', 'scipy', 'clarabel', 'cvxpy-base']);
+  ldStage('packages', 'start'); await py.loadPackage(['numpy', 'scipy', 'clarabel', 'cvxpy-base']); ldStage('packages', 'done');
   post('progress', { frac: 0.7, msg: 'Loading the paper\'s Python files and trained actors...' });
   py.FS.mkdirTree('/evdemo/py'); py.FS.mkdirTree('/evdemo/data');
+  ldStage('files', 'start'); ldFiles = true;
   for (const f of PY_FILES) py.FS.writeFile('/evdemo/py/' + f, await getBuf('py/' + f));
   for (const f of DATA_FILES) py.FS.writeFile('/evdemo/data/' + f, await getBuf('data/' + f));
-  py.runPython("import sys; sys.path.insert(0,'/evdemo/py'); import demo_api");
+  ldFiles = false; ldStage('files', 'done'); ldStage('import', 'start');
+  py.runPython("import sys; sys.path.insert(0,'/evdemo/py'); import demo_api"); ldStage('import', 'done');
   api = py.pyimport('demo_api');
   post('progress', { frac: 0.9, msg: 'Starting the energy model and MPC solver...' });
-  const info = JSON.parse(api.init('/evdemo/data'));
+  ldStage('init', 'start'); const info = JSON.parse(api.init('/evdemo/data'));
   // warm-up: build one MPC problem and solve once (first solve is slower)
-  api.run_window('mpc_const', 0, 0.65, 35.0);
-  post('ready', { info, pyodide: PYODIDE_VERSION, secs: (performance.now() - t0) / 1000, windows: JSON.parse(api.window_list()) });
+  ldStage('init', 'done'); ldStage('solve', 'start'); api.run_window('mpc_const', 0, 0.65, 35.0);
+  post('ready', { at: performance.now(), info, pyodide: PYODIDE_VERSION, secs: (performance.now() - t0) / 1000, windows: JSON.parse(api.window_list()) });
 }
 async function ensureML() {
   if (mlReady) return;

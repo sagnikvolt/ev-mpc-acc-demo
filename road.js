@@ -239,12 +239,12 @@
       if (force || idx !== this.lastIdx) { this.lastIdx = idx; this.emit(this.t); }
     }
     emit(t) { window.dispatchEvent(new CustomEvent('ev:scrub', { detail: { t, src: this.id, scope: this.scope } })); }
-    /* hover on a chart previews that time here; leaving restores the previous frame and resumes playback if it was running */
+    /* scrubber, not hover: a press or drag on a chart (phase down / drag) pauses and sets the time; release (up) leaves it paused there until Play is pressed. Hover (phase hover) never moves the view. */
     onScrub(d) {
       if (d.scope !== this.scope || d.src !== 'chart' || !this.data) return;
-      if (d.t === null || d.t === undefined) { if (this.hover) { const h = this.hover; this.hover = null; this.t = h.t; this.frame(true); if (h.was) this.play(); } return; }
-      if (!this.hover) { this.hover = { t: this.t, was: this.playing }; this.pause(); }
-      this.t = clamp(d.t, 0, this.data.T); this.draw(); this.ui();
+      if (d.phase !== 'down' && d.phase !== 'drag') return;
+      if (d.t === null || d.t === undefined) return;
+      if (this.playing) this.pause(); this.t = clamp(d.t, 0, this.data.T); this.frame(true);
     }
     draw() {
       const D = this.data; if (!D || !this.W || !this.vis) return;
