@@ -127,7 +127,7 @@
    "dx": -8,
    "dy": -30,
    "label": "Road view",
-   "text": "The road view replays the window as a side view. Each controller has its own lane. The lead car is grey, our MPC car is teal, and the outline car is the recorded follower.",
+   "text": "The road view replays the window as a side view. Each controller has its own lane. The cars are pictures of the same Polestar model as on Home: the lead car is white, our MPC car is teal, the other controllers are grey and the outline car is the recorded follower. Wheels turn, bumps lift them and the brake lights glow when a car slows down.",
    "selector": "#rv-run .rv-cv",
    "bbox": {
     "x": 385,

@@ -161,7 +161,64 @@ def train_eval(D, model='lgbm', mode='resid', n_target=0, importance=True):
                 b = a.copy(); p = prng.permutation(len(b)); b[:, ci] = a[p][:, ci]; inc.append(float(np.sqrt(np.mean((pr(m, b) - yy) ** 2)) / 1000) - base)
             imp[g] = float(np.mean(inc))
         r['importance'] = imp; r['importance_base_rmse_kw'] = base
-    r['total_s'] = time.time() - t0; return r
+    r['total_s'] = time.time() - t0
+    try:   # Round w: views of the fitted model for the Train it page. Read-only: uses the fitted model and arrays above, its own random generators, never touches r's numbers (total_s is taken before this)
+        t1 = time.time(); r['views'] = model_views(D, model, resid, m, Xtr[msk], Xte, cols, ytr, pred, y, errs, tt, tte); r['views_s'] = time.time() - t1
+    except Exception as ex:
+        r['views'] = None; r['views_err'] = str(ex)[:200]
+    return r
+def _sub(rng_seed, n_keep, n_rows):
+    return np.random.default_rng(rng_seed).choice(n_rows, min(n_keep, n_rows), replace=False)
+def model_views(D, model, resid, m, Xtr, Xte, cols, ytr, pred, y, errs, tt, tte):
+    """Everything the Train it 'Model view' draws, computed from the fitted model (kW unless stated). No numbers are typed by hand."""
+    V = {}; trips = np.unique(tt); ae = np.abs(np.array(errs)); k = int(np.argmin(np.abs(ae - np.median(ae)))); trip = int(trips[k])
+    i = np.where(tt == trip)[0]; stride = int(np.ceil(len(i) / 450)); j = i[::stride]
+    if j[-1] != i[-1]: j = np.append(j, i[-1])
+    V['trip'] = dict(id=trip, err_pct=float(errs[k]), n=int(len(i)), stride=stride, dt_s=float(np.median(np.diff(tte[i]))), t=[float(x) for x in tte[j] - tte[i][0]], meas=[float(x) / 1000 for x in y[j]], pred=[float(x) / 1000 for x in pred[j]],
+                     phys=[float(x) / 1000 for x in D.Pp[D.te][j]], rmse_kw=float(np.sqrt(np.mean((pred[i] - y[i]) ** 2)) / 1000), phys_rmse_kw=float(np.sqrt(np.mean((D.Pp[D.te][i] - y[i]) ** 2)) / 1000))
+    V['phys_rmse_kw'] = float(np.sqrt(np.mean((D.Pp[D.te] - y) ** 2)) / 1000); V['target'] = 'residual' if resid else 'power'
+    ci = {c: n for n, c in enumerate(cols)}; Xte_raw = D.X[D.te]
+    if model == 'lgbm':
+        bst = m.booster_; ks = [10, 25, 50, 100, 200, 400]; rm = []; cum = 0.0; prev = 0   # trees are scored in segments and added up (same numbers as num_iteration=k, each tree scored once); the 400-tree point is the prediction already made above
+        for nt in ks[:-1]:
+            cum = cum + bst.predict(Xte, start_iteration=prev, num_iteration=nt - prev, raw_score=True); prev = nt; p_ = cum + D.Pp[D.te] if resid else cum; rm.append(float(np.sqrt(np.mean((p_ - y) ** 2)) / 1000))
+        rm.append(float(np.sqrt(np.mean((pred - y) ** 2)) / 1000))
+        V['trees'] = dict(k=ks, rmse_kw=rm)
+    elif model == 'ridge':
+        co = np.asarray(m.coef_).ravel() / 1000.0; V['coef'] = dict(names=list(cols), kw_per_sd=[float(x) for x in co], intercept_kw=float(np.ravel(m.intercept_)[0]) / 1000.0, alpha=float(m.alpha))
+    elif model == 'knn':
+        sel = _sub(42, 70000, len(Xtr))
+        if np.allclose(m._fit_X, Xtr[sel]):
+            tr_i = np.where(tt == trip)[0]; v_ = Xte_raw[tr_i, ci['v']]; a_ = Xte_raw[tr_i, ci['a']]; ok = np.where(v_ > 2.0)[0]
+            q = tr_i[ok[np.argmin(np.abs(np.abs(a_[ok]) - np.percentile(np.abs(a_[ok]), 90)))]]
+            d, ix = m.kneighbors(Xte[q:q + 1], n_neighbors=25); d = d[0]; ix = ix[0]; w = 1.0 / np.maximum(d, 1e-12); w = w / w.sum(); yt = ytr[sel][ix]
+            nb = Xtr_raw_of(D, Xtr, cols, sel, ix)
+            ptarget = float(np.sum(w * yt)); mom_pred = float(pred[q]); mom_meas = float(y[q])
+            V['knn'] = dict(q=dict(v=float(Xte_raw[q, ci['v']]), a=float(Xte_raw[q, ci['a']]), t=float(tte[q] - tte[tr_i][0])), nb=[dict(v=float(nb[n_, 0]), a=float(nb[n_, 1]), val_kw=float(yt[n_]) / 1000, dist=float(d[n_]), w=float(w[n_])) for n_ in range(25)],
+                            avg_kw=ptarget / 1000, pred_kw=mom_pred / 1000, meas_kw=mom_meas / 1000, phys_kw=float(D.Pp[D.te][q]) / 1000, n_fit=int(len(sel)), cloud=[[float(a), float(b)] for a, b in nb_cloud(D, Xtr, cols, sel)])
+    else:
+        sel = _sub(42, 8000, len(Xtr)); sc = float(np.std(ytr[sel])); sv = np.asarray(m.support_)
+        if np.allclose(m.support_vectors_, Xtr[sel][sv]):
+            vi = [ci[c] for c in ('v', 'v2', 'v_l2', 'v_l5', 'v_m5') if c in ci]; med = np.median(Xtr[sel], axis=0)
+            vmax = float(np.percentile(D.X[D.tr][:, 0], 99.5)); gv = np.linspace(0, vmax, 60); G = np.tile(med, (len(gv), 1)); mu_sd = _musd(D)
+            for c in ('v', 'v_l2', 'v_l5', 'v_m5'):
+                if c in ci: G[:, ci[c]] = (gv - mu_sd[0][c]) / mu_sd[1][c]
+            if 'v2' in ci: G[:, ci['v2']] = (gv ** 2 - mu_sd[0]['v2']) / mu_sd[1]['v2']
+            pc = m.predict(G) * sc; eps = float(m.epsilon) * sc
+            rng = np.random.default_rng(5); nsv = len(sv); pick_sv = rng.choice(nsv, min(160, nsv), replace=False); non = np.setdiff1d(np.arange(len(sel)), sv); pick_n = rng.choice(len(non), min(160, len(non)), replace=False)
+            vcol = ci['v']; vr = lambda idx: (Xtr[sel][idx][:, vcol] * mu_sd[1]['v'] + mu_sd[0]['v'])
+            V['svr'] = dict(n_sv=int(nsv), n_fit=int(len(sel)), eps_kw=eps / 1000, v=[float(x) for x in gv], pred_kw=[float(x) / 1000 for x in pc], target=V['target'],
+                            sv_pts=[[float(a), float(b) / 1000] for a, b in zip(vr(sv[pick_sv]), ytr[sel][sv[pick_sv]])], other_pts=[[float(a), float(b) / 1000] for a, b in zip(vr(non[pick_n]), ytr[sel][non[pick_n]])])
+    return V
+def _musd(D):
+    X = D.X; tr = D.tr; med = np.nanmedian(X[tr], axis=0); med = np.where(np.isnan(med), 0, med); f = np.where(np.isnan(X[tr]), med, X[tr]); mu = f.mean(0); sd = f.std(0) + 1e-9
+    return ({n: float(mu[i]) for i, n in enumerate(D.fn)}, {n: float(sd[i]) for i, n in enumerate(D.fn)})
+def Xtr_raw_of(D, Xtr, cols, sel, ix):
+    mu, sd = _musd(D); ci = {c: n for n, c in enumerate(cols)}; rows = Xtr[sel][ix]
+    return np.column_stack([rows[:, ci['v']] * sd['v'] + mu['v'], rows[:, ci['a']] * sd['a'] + mu['a']])
+def nb_cloud(D, Xtr, cols, sel):   # 400 random fitted rows (speed, acceleration) as the faint background of the neighbour view
+    mu, sd = _musd(D); ci = {c: n for n, c in enumerate(cols)}; pick = np.random.default_rng(9).choice(len(sel), min(400, len(sel)), replace=False); rows = Xtr[sel][pick]
+    return np.column_stack([rows[:, ci['v']] * sd['v'] + mu['v'], rows[:, ci['a']] * sd['a'] + mu['a']])
 
 # ---------------------------------------------------------------- recorded follower (copied from python/normal_car.py: smooth, replay, jerk_rms; 1.0 s smoothing, first 1046 samples)
 def _smooth(v, n):

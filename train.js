@@ -31,6 +31,7 @@ async function runTrain() {
     { k: 'dt', name: 'Load the BMW i3 data', text: 'The measured BMW i3 trips (about 8 MB) are read into memory and split by trip: folds 1 to 4 train, the 14 trips of fold 0 are held out.' },
     { k: 'fit', name: 'Build features, fit, test' + (imp ? ', importance' : ''), text: `One Python call. Inside it, in this order: (1) build the inputs (speed, acceleration, lags, cabin heating, physics wheel power) and the target; (2) fit the model on ${n ? 'about ' + n.toLocaleString('en-US') : 'all'} training samples. ${MEXP[model]} ${TE} (3) predict the 14 unseen trips and score them${imp ? '; (4) shuffle one input group at a time and measure how much the error grows (permutation importance)' : ''}. The worker reports the split of the time when the call ends.` },
     { k: 'cmp', name: 'Compare with the paper', text: 'Your numbers are put beside the paper\'s stored fold-0 values for the same model and target.' }]);
+  if (window.MV) { Proc.show('model'); MV.start(model, mode, n); }   /* Model view: the labelled illustration while it trains */
   Proc.log(`${TNAMES[model]}, ${TMODE[mode]}, ${n ? 'about ' + n.toLocaleString('en-US') + ' samples' : 'all training samples'}${imp ? ', with importance' : ''}`);
   const t0 = performance.now(); let cur = null, curT = t0; const durs = {};
   const phase = (k, chip) => { const now = performance.now(); if (cur) { durs[cur] = (now - curT) / 1000; tq(cur, 'done', durs[cur].toFixed(1) + ' s'); } cur = k; curT = now; if (k) { tq(k, 'run', 'running'); setTChip(chip[0], chip[1]); } };
@@ -100,6 +101,7 @@ function renderTrain(r, model, mode, n, secs, imp) {
   $('truns').innerHTML = rh + '</table>'; $('texport').disabled = false;
   renderMatlab(r, model, mode, n, p);
   activateTTab('table', false); window.__lastTrain = r;
+  if (window.MV) MV.setReal(r, model, mode);   /* Model view: real views from the fitted model (computed in the worker) */
 }
 function renderMatlab(r, model, mode, n, p) {
   const el = $('tml'), row = MLM && MLM.rows.find(x => x.model === MLMAP[model] && x.mode === mode), mp = '<p class="lim mut" style="max-width:46rem">See the <a href="/matlab/#ch-6">MATLAB page</a> for how the MATLAB models were set up and checked.</p>';

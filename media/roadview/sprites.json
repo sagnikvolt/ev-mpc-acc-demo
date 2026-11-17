@@ -1,0 +1,43 @@
+{
+ "pxPerM": 100,
+ "carLenM": 4.8777,
+ "carHeightM": 1.6616,
+ "sprite": {
+  "w": 520,
+  "h": 180
+ },
+ "groundY": 170,
+ "bumperX": {
+  "rear": 16,
+  "front": 504
+ },
+ "wheelRadiusM": 0.4067,
+ "wheelPxPerM": 200,
+ "wheelSprite": {
+  "w": 166,
+  "h": 166
+ },
+ "wheels": {
+  "front": [
+   413.4,
+   129.3
+  ],
+  "rear": [
+   115.4,
+   129.3
+  ]
+ },
+ "glow": {
+  "x": 0,
+  "y": 0,
+  "w": 111,
+  "h": 167
+ },
+ "files": {
+  "ours_dark": "car_ours_dark.png",
+  "ours_light": "car_ours_light.png",
+  "lead": "car_lead.png",
+  "other": "car_other.png"
+ },
+ "note": "Side-view sprites rendered from the simplified car.bin (orthographic, facing +x, transparent); wheels hidden in the body sprites, one wheel sprite; the original model file is not part of the site."
+}

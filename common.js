@@ -1,7 +1,7 @@
 'use strict';
 /* Shared code for every page: helpers, the engine (worker.js, Pyodide) on /run/ and /train/ only, CSV export, lightbox, self-test hook. All simulation and training run on the visitor's device. */
 const $ = id => document.getElementById(id);
-const SITE_V = '20261116v';   // same as VER in build_site.py (the build checks it)
+const SITE_V = '20261118w';   // same as VER in build_site.py (the build checks it)
 const ARMS = {
   acc: { name: 'Tuned ACC', c: 'var(--c-acc)', w: 1.5, dash: '6 4' }, smc: { name: 'SMC', c: 'var(--c-smc)', w: 1.5, dash: '1.5 3.5' }, sac42: { name: 'Plain SAC (seed 42)', c: 'var(--c-sac42)', w: 1.5, dash: '9 3 1.5 3' },
   safesac42: { name: 'Safe SAC (seed 42)', c: 'var(--c-safesac42)', w: 1, dash: '12 4' }, mpc_const: { name: 'MPC const-speed (our design car)', c: 'var(--c-mpc_const)', w: 2.25 },
@@ -186,11 +186,11 @@ window.runSelfTest = async function (opts) {
    Stages are driven by what the page and the worker really report (per controller on Run it; per Python call on Train it). It shows elapsed time and the stage that is running, a short plain explanation of that stage, and a time-stamped log of the worker's messages. No percentages: the worker does not report any. */
 const Proc = (function () {
   const el = $('proc'), bar = $('procbar'), st = document.querySelector('.stage');
-  const none = { running: false, log() {}, start() {}, stage() {}, finish() {}, fail() {}, note() {} };
+  const none = { running: false, show() {}, log() {}, start() {}, stage() {}, finish() {}, fail() {}, note() {} };
   if (!el || !bar || !st) return none;
   let t0 = 0, tm = 0, cur = null, curT = 0, running = false, nLog = 0; const list = $('proc-st'), logEl = $('proc-log'), elapsed = $('proc-el'), title = $('proc-title'), radios = bar.querySelectorAll('input[name=pview]');
   const secs = () => (performance.now() - t0) / 1000, f1 = s => s.toFixed(1) + ' s', esc = x => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;');
-  const view = v => { st.classList.toggle('pv-proc', v === 'proc'); radios.forEach(r => { r.checked = r.value === v; }); };
+  const view = v => { st.classList.toggle('pv-proc', v === 'proc'); st.classList.toggle('pv-model', v === 'model'); radios.forEach(r => { r.checked = r.value === v; }); };
   radios.forEach(r => { r.onchange = () => view(r.value); });
   const li = k => list.querySelector(`[data-k="${k}"]`);
   const setT = (k, s, txt) => { const l = li(k); if (!l) return; l.dataset.s = s; l.querySelector('.pq').textContent = txt; if (s === 'run') l.setAttribute('aria-current', 'step'); else l.removeAttribute('aria-current'); };
@@ -201,6 +201,7 @@ const Proc = (function () {
   }
   return {
     get running() { return running; },
+    show: view,   /* Train it: 'model' shows the Model view card */
     log,
     start(ttl, stages) {
       title.textContent = ttl; nLog = 0; logEl.textContent = ''; cur = null;

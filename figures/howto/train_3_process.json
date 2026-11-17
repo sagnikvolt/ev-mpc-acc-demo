@@ -10,12 +10,12 @@
    "side": "l",
    "mx": 355,
    "label": "Process view",
-   "text": "Process shows the steps of the training and how long each took; Results switches back to the numbers.",
+   "text": "Process shows the steps of the training and how long each took; Model view shows how the model learns (a labelled illustration while it trains, then views of your trained model); Results switches back to the numbers.",
    "selector": "#procbar .seg",
    "bbox": {
     "x": 368,
     "y": 179.8,
-    "width": 174.1,
+    "width": 281.0,
     "height": 44
    },
    "anchor": {
@@ -37,17 +37,17 @@
    "selector": "#proc-st li:nth-child(2)",
    "bbox": {
     "x": 389,
-    "y": 359.8,
+    "y": 403.8,
     "width": 913,
     "height": 80
    },
    "anchor": {
     "x": 389,
-    "y": 399.8
+    "y": 443.8
    },
    "marker": {
     "x": 355,
-    "y": 399.8,
+    "y": 443.8,
     "r": 13
    }
   }
